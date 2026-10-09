@@ -1,0 +1,73 @@
+.anker-status {
+  min-width: 240px;
+  max-width: 380px;
+  text-align: left;
+}
+
+.anker-status .anker-title {
+  margin-bottom: 12px;
+  font-size: 24px;
+}
+
+.anker-status .anker-card {
+  padding: 12px 0;
+  border-bottom: 1px solid #444;
+}
+
+.anker-status .anker-name {
+  font-size: 20px;
+}
+
+.anker-status .anker-metrics {
+  margin: 8px 0;
+}
+
+.anker-status .anker-metric {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.anker-status .anker-battery-track {
+  height: 5px;
+  background: #333;
+  margin: 5px 0 10px;
+  border-radius: 3px;
+  overflow: hidden;
+}
+
+.anker-status .anker-battery-fill {
+  height: 100%;
+  background: #ddd;
+}
+
+.anker-status .anker-low,
+.anker-status .anker-warning {
+  color: #e7bd70;
+}
+
+.anker-status .anker-low {
+  background: #e7bd70;
+}
+
+.anker-status .anker-error {
+  color: #e79393;
+}
+
+.anker-status .anker-error,
+.anker-status .anker-warning {
+  overflow-wrap: anywhere;
+  margin-bottom: 8px;
+}
+
+.anker-status .anker-updated {
+  margin-top: 10px;
+}
+
+.anker-status.anker-compact .anker-card {
+  padding: 6px 0;
+}
+
+.anker-status.anker-compact .anker-name {
+  font-size: 17px;
+}

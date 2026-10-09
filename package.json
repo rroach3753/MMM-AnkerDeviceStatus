@@ -1,0 +1,11 @@
+{
+  "name": "mmm-anker-device-status",
+  "version": "1.0.0-alpha.1",
+  "private": true,
+  "description": "ALPHA: Read-only Anker SOLIX and supported Wi-Fi power device status for MagicMirror; live-device testing pending",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "test": "node --test tests/*.test.js",
+    "check": "node --check MMM-AnkerDeviceStatus.js && node --check node_helper.js"
+  }
+}

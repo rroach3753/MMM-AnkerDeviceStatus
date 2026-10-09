@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Anker Power - sample preview</title>
+  <link rel="stylesheet" href="../MMM-AnkerDeviceStatus.css">
+  <style>
+    body { background: #000; color: #ccc; font-family: Arial, sans-serif; margin: 40px; }
+    .bright { color: #fff; }
+    .dimmed { color: #999; }
+    .small { font-size: 16px; line-height: 1.5; }
+    .xsmall { font-size: 12px; line-height: 1.5; }
+    .sample-label { margin-bottom: 20px; font-size: 13px; color: #999; }
+  </style>
+</head>
+<body>
+  <div class="sample-label">Sample data only - not connected to an Anker account</div>
+  <main id="preview"></main>
+  <script>
+    const Module = {
+      register(name, definition) {
+        definition.config = { ...definition.defaults, showUpdated: false };
+        definition.state = {
+          devices: [
+            {
+              id: "demo-station", name: "Office Backup", model: "A1761", type: "pps",
+              site: "", online: true, status: "unknown", battery: 82, input: 140,
+              output: 68, solar: null, temperature: null, telemetry: "MQTT"
+            },
+            {
+              id: "demo-solarbank", name: "Solarbank", model: "A17C1", type: "solarbank",
+              site: "Home Solar", online: true, status: "charging", battery: 18,
+              input: 320, output: 200, solar: 320, temperature: null, telemetry: "MQTT"
+            },
+            {
+              id: "demo-charger", name: "Desk Charger", model: "A2345", type: "charger",
+              site: "", online: false, status: "unknown", battery: null, input: null,
+              output: null, solar: null, temperature: null, telemetry: "Cloud only"
+            }
+          ],
+          error: null
+        };
+        document.getElementById("preview").appendChild(definition.getDom());
+      }
+    };
+  </script>
+  <script src="../MMM-AnkerDeviceStatus.js"></script>
+</body>
+</html>
