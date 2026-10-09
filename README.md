@@ -1,13 +1,14 @@
-# MMM-AnkerDeviceStatus — ALPHA
+# MMM-AnkerDeviceStatus
 
-**Status: ALPHA (`1.0.0-alpha.1`) — testing is not complete.**
+**Release: `1.0.0`.**
 
-This module is available for community testing, not as a production-ready
-release. Automated tests and a sample browser layout have been verified, but
-authentication, telemetry, and compatibility with real Anker devices have not
-yet been verified. Device support below reflects the upstream client's
-capabilities, not completed end-to-end testing of this module. The module will
-remain ALPHA until live-device testing is completed.
+Automated tests and the live mirror layout have been verified.
+Live authentication/discovery and battery, temperature, and charging-state
+telemetry on A1761 (C1000) and AS220 (S2000) were verified on October 9, 2026.
+Other readings, devices, firmware combinations, and long-term reliability
+remain unverified. Remaining runtime is covered by automated tests but has not
+yet been verified during live battery discharge. Device support below reflects
+the upstream client's capabilities, not completed end-to-end testing of every model.
 
 Report test results and problems through
 [GitHub issues](https://github.com/rroach3753/MMM-AnkerDeviceStatus/issues).
@@ -24,10 +25,20 @@ low-battery highlighting, and explicit unavailable/stale-data messages.
 Open [examples/preview.html](examples/preview.html) in a browser for a sample
 layout without credentials. All values in that preview are fictional.
 
+The display defaults to **SOLIX devices only**. Prime chargers, charging bases,
+power banks and unclassified devices are hidden, regardless of their custom
+names. Set `solixOnly: false` to include the wider Anker device list.
+
+Device cards use two equal-width columns and as many rows as needed. The heading,
+warnings, and cloud-poll timestamp span both columns. The module is 660px wide,
+limited by the viewport width; long device names wrap within their column.
+Each card header shows the device name, connection status, and available charging
+status together, wrapping when needed. Model numbers are not displayed.
+
 ## Compatibility
 
 Uses the unofficial [anker-solix-api](https://github.com/thomluther/anker-solix-api)
-client, pinned to a source revision verified by local automated tests only. Anker can change its cloud services
+client, pinned to a source revision verified by automated tests and the live models noted above. Anker can change its cloud services
 without notice; this is not an official Anker integration.
 
 - SOLIX Solarbank, supported portable power stations, power panels and X1 systems.
@@ -40,10 +51,13 @@ without notice; this is not an official Anker integration.
   and Bluetooth-only chargers/power banks are not supported.
 
 Many standalone devices provide almost no telemetry through the HTTP API.
-This module also subscribes to **passive MQTT telemetry**, using the account's
-Anker-issued MQTT credentials. It does not send device controls, status-request
-commands, or real-time activation commands. Some models only publish useful
-readings while awake or while the app is open; readings may remain unavailable.
+This module subscribes to MQTT telemetry using Anker-issued credentials.
+For A1761, AS220, A2345 and A91B2 it also requests status every 60 seconds and
+activates real-time telemetry for 300 seconds, renewed every 240 seconds where
+the upstream model supports it. These requests do not change outputs or charging
+settings, but can increase network traffic and device power use. Other models
+remain passive. Some models only publish useful readings while awake; readings
+may remain unavailable.
 An account listing does not prove a device is online.
 
 ## Requirements
@@ -56,7 +70,7 @@ An account listing does not prove a device is online.
 
 ## Installation
 
-On the **machine running MagicMirror**, clone the ALPHA module into your
+On the **machine running MagicMirror**, clone the module into your
 MagicMirror modules directory:
 
 ```sh
@@ -119,12 +133,16 @@ Restart MagicMirror after changing credentials or polling settings.
 | --- | --- | --- |
 | `title` | `"Anker Power"` | Heading; empty string hides it |
 | `showOffline` | `true` | Include explicitly offline devices; unknown devices are retained |
+| `showCloudOnly` | `true` | Set to `false` to hide Cloud only cards; waiting/stale MQTT cards remain visible |
+| `solixOnly` | `true` | Show SOLIX power stations, energy systems and associated device families (including AS200 alternator charger); hide Prime chargers, power banks and unknown families |
 | `deviceIds` | `[]` | Serial-number allowlist; empty shows all account devices |
 | `deviceNames` | `{}` | Name overrides keyed by device serial number |
 | `showBattery` | `true` | Battery reading/bar for battery-equipped devices |
 | `showPower` | `true` | Input/output and available solar watts |
-| `showTemperature` | `false` | Temperature in Celsius when provided by MQTT |
-| `showUpdated` | `true` | Age of the last successful HTTP cloud poll |
+| `showTemperature` | `false` | Temperature in Celsius and Fahrenheit when provided by MQTT |
+| `showCharging` | `true` | Charging/not-charging state for C1000 (A1761) and S2000 (AS220); unknown is explicit |
+| `showRuntime` | `true` | Device-reported remaining hours/minutes while discharging; hidden when idle/charging, `--` if unknown |
+| `showUpdated` | `true` | Age of the last successful HTTP cloud poll beside the module title |
 | `compact` | `false` | Smaller cards |
 
 Example: `deviceNames: { "YOUR_DEVICE_SERIAL": "Office backup" }`.
@@ -142,17 +160,25 @@ Set these in `.env` or MagicMirror's process environment:
 | `ANKER_COUNTRY` | Required | Two-letter account country code, such as `US` or `DE` |
 | `ANKER_POLL_INTERVAL` | `300` | HTTP polling seconds, minimum 60 |
 | `ANKER_DETAILS_INTERVAL` | `1800` | Device discovery/detail polling seconds, at least the HTTP interval |
-| `ANKER_MQTT` | `true` | Enable passive MQTT; `true` or `false` |
+| `ANKER_MQTT` | `true` | Enable MQTT and supported read-only telemetry requests; `true` or `false` |
 | `ANKER_MQTT_STALE_SECONDS` | `600` | Stop using MQTT readings after this many seconds without a decoded device update |
 | `ANKER_PYTHON` | Module's `.venv` | Interpreter path; **process environment only** |
 
 MQTT-backed cards refresh about every 15 seconds; that does not increase HTTP
 polling. Cloud data is often already delayed by Anker. A fetched timestamp
 indicates a successful cloud poll, **not** a fresh measurement from every device.
-Expired/disconnected MQTT readings fall back to available HTTP values, otherwise
+Individual MQTT fields expire independently: unrelated packets do not refresh
+old battery, temperature or charging readings. Charging uses the model-specific
+reported state, not a guess from wattage. Expired/disconnected MQTT readings fall back to available HTTP values, otherwise
 show `--`. A partial AC/DC reading is not shown as total input/output. Zero watts
 and zero battery are preserved. During an HTTP failure the last successful
 cards remain visible with an error and their cloud-poll age.
+
+Runtime is Anker's `remaining_time_hours` estimate, not a capacity calculation.
+S2000 discharge is determined from its reported battery state. C1000 discharge
+requires inactive charging and fresh, complete MQTT output exceeding input.
+Missing or stale discharge/runtime fields show `--`; idle or charging devices
+hide the runtime row. Runtime accuracy depends on the device and current load.
 
 ## Troubleshooting
 

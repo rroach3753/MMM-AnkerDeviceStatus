@@ -3,11 +3,15 @@ Module.register("MMM-AnkerDeviceStatus", {
   defaults: {
     title: "Anker Power",
     showOffline: true,
+    showCloudOnly: true,
+    solixOnly: true,
     deviceIds: [],
     deviceNames: {},
     showBattery: true,
     showPower: true,
     showTemperature: false,
+    showCharging: true,
+    showRuntime: true,
     showUpdated: true,
     compact: false
   },
@@ -61,7 +65,14 @@ Module.register("MMM-AnkerDeviceStatus", {
 
   getDom() {
     const wrapper = this.element("div", `anker-status${this.config.compact ? " anker-compact" : ""}`);
-    if (this.config.title) wrapper.appendChild(this.element("div", "anker-title bright", this.config.title));
+    const title = this.element("div", "anker-title");
+    if (this.config.title) title.appendChild(this.element("span", "bright", this.config.title));
+    if (this.config.showUpdated && this.state && this.state.fetchedAt) {
+      const elapsed = Math.max(0, Math.floor((Date.now() - Date.parse(this.state.fetchedAt)) / 60000));
+      title.appendChild(this.element("span", "dimmed xsmall anker-updated",
+        `${this.state.error ? "Last successful cloud poll" : "Cloud polled"} ${elapsed < 1 ? "just now" : `${elapsed} min ago`}`));
+    }
+    if (title.children.length) wrapper.appendChild(title);
     if (!this.state) {
       wrapper.appendChild(this.element("div", "dimmed small", "Connecting to Anker..."));
       return wrapper;
@@ -69,7 +80,13 @@ Module.register("MMM-AnkerDeviceStatus", {
     if (this.state.error) wrapper.appendChild(this.element("div", "anker-error small", this.state.error));
     if (this.state.warning) wrapper.appendChild(this.element("div", "anker-warning small", this.state.warning));
     const devices = this.state.devices.filter((device) =>
+      (!this.config.solixOnly || [
+        "solarbank", "solarbank_pps", "pps", "powerpanel", "hes",
+        "home_backup", "combiner_box", "inverter", "smartmeter", "smartplug",
+        "ev_charger", "powercooler", "generator"
+      ].includes(device.type) || device.model === "AS200") &&
       (this.config.showOffline || device.online !== false) &&
+      (this.config.showCloudOnly || !device.telemetry.startsWith("Cloud only")) &&
       (!this.config.deviceIds.length || this.config.deviceIds.includes(device.id))
     );
     if (!devices.length && !this.state.error) {
@@ -78,14 +95,20 @@ Module.register("MMM-AnkerDeviceStatus", {
     for (const device of devices) {
       const card = this.element("div", "anker-card");
       const name = this.config.deviceNames[device.id] || device.name;
-      card.appendChild(this.element("div", "anker-name bright", name));
+      const header = this.element("div", "anker-device-header");
+      header.appendChild(this.element("span", "anker-name bright", name));
       const connection = device.online === true ? "Online" : device.online === false ? "Offline" : "Status unknown";
-      card.appendChild(this.element("div", `anker-connection small${device.online === false ? " dimmed" : ""}`,
-        `${connection} | ${device.model || device.type}`));
-      if (device.site) card.appendChild(this.element("div", "dimmed xsmall", device.site));
-      if (device.status && device.status !== "unknown") {
-        card.appendChild(this.element("div", "small", device.status));
+      header.appendChild(this.element("span", `anker-connection xsmall${device.online === false ? " dimmed" : ""}`,
+        connection));
+      if (this.config.showCharging && ["A1761", "AS220"].includes(device.model)) {
+        const charging = device.charging === true ? "Charging" :
+          device.charging === false ? "Not Charging" : "Charging status unavailable";
+        header.appendChild(this.element("span", "anker-charging xsmall", charging));
+      } else if (device.status && device.status !== "unknown" && device.status.toLowerCase() !== connection.toLowerCase()) {
+        header.appendChild(this.element("span", "anker-charging xsmall", device.status));
       }
+      card.appendChild(header);
+      if (device.site) card.appendChild(this.element("div", "dimmed xsmall", device.site));
       const metrics = this.element("div", "anker-metrics small");
       if (this.config.showBattery && (device.battery !== null || ["solarbank", "solarbank_pps", "pps", "hes"].includes(device.type))) {
         this.metric(metrics, "Battery", device.battery, "%");
@@ -107,15 +130,29 @@ Module.register("MMM-AnkerDeviceStatus", {
         this.metric(metrics, "Output", device.output, " W");
         if (device.solar !== null) this.metric(metrics, "Solar", device.solar, " W");
       }
-      if (this.config.showTemperature) this.metric(metrics, "Temperature", device.temperature, " C");
+      if (this.config.showTemperature) {
+        const row = this.element("div", "anker-metric");
+        const temperature = device.temperature;
+        const reading = typeof temperature === "number" && Number.isFinite(temperature)
+          ? `${Math.round(temperature)} C / ${Math.round(temperature * 9 / 5 + 32)} F` : "--";
+        row.appendChild(this.element("span", "dimmed", "Temperature"));
+        row.appendChild(this.element("span", "bright", reading));
+        metrics.appendChild(row);
+      }
+      if (this.config.showRuntime && ["A1761", "AS220"].includes(device.model) &&
+          device.discharging !== false) {
+        const row = this.element("div", "anker-metric");
+        const hours = device.runtimeHours;
+        const minutes = typeof hours === "number" && Number.isFinite(hours) && hours >= 0
+          && device.discharging === true ? Math.round(hours * 60) : null;
+        const reading = minutes === null ? "--" : `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+        row.appendChild(this.element("span", "dimmed", "Runtime"));
+        row.appendChild(this.element("span", "bright", reading));
+        metrics.appendChild(row);
+      }
       card.appendChild(metrics);
       card.appendChild(this.element("div", "dimmed xsmall", device.telemetry));
       wrapper.appendChild(card);
-    }
-    if (this.config.showUpdated && this.state.fetchedAt) {
-      const elapsed = Math.max(0, Math.floor((Date.now() - Date.parse(this.state.fetchedAt)) / 60000));
-      wrapper.appendChild(this.element("div", "dimmed xsmall anker-updated",
-        `${this.state.error ? "Last successful cloud poll" : "Cloud polled"} ${elapsed < 1 ? "just now" : `${elapsed} min ago`}`));
     }
     return wrapper;
   }

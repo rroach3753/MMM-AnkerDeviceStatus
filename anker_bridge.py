@@ -1,4 +1,4 @@
-"""Read-only cloud polling and passive MQTT telemetry for MagicMirror."""
+"""Read-only cloud polling and requested MQTT telemetry for MagicMirror."""
 
 from __future__ import annotations
 
@@ -30,6 +30,9 @@ class Device(TypedDict):
     output: float | None
     solar: float | None
     temperature: float | None
+    charging: bool | None
+    discharging: bool | None
+    runtimeHours: float | None
     telemetry: str
 
 
@@ -86,10 +89,11 @@ def normalize_device(
     mqtt_connected: bool,
     stale_seconds: int,
     mqtt_enabled: bool = True,
+    reported_values: dict | None = None,
 ) -> Device:
     fresh = mqtt_connected and mqtt_age is not None and mqtt_age <= stale_seconds
     mqtt = raw.get("mqtt_data") or {}
-    values = mqtt if fresh else {}
+    values = (mqtt if reported_values is None else reported_values) if fresh else {}
     battery = first_number(values, "battery_soc", "battery_soc_total", "main_battery_soc")
     if battery is None:
         battery = first_number(raw, "battery_soc")
@@ -106,6 +110,27 @@ def normalize_device(
     if fresh:
         online = True
     site = sites.get(raw.get("site_id"), {})
+    charging = None
+    discharging = None
+    model = raw.get("device_pn")
+    if model == "AS220":
+        state = first_number(values, "battery_status")
+        if state in (0, 1, 2):
+            charging = state == 2
+            discharging = state == 1
+    elif model == "A1761":
+        state = first_number(values, "charging_status")
+        if state in (0, 1, 2, 3):
+            charging = state > 0
+        mqtt_input = power_total(values, "input")
+        mqtt_output = power_total(values, "output")
+        if charging is False and mqtt_input is not None and mqtt_output is not None:
+            discharging = mqtt_output > mqtt_input
+        elif charging is True:
+            discharging = False
+    runtime = first_number(values, "remaining_time_hours") if discharging is True else None
+    if runtime is not None and runtime < 0:
+        runtime = None
     return {
         "id": serial,
         "name": str(raw.get("alias") or raw.get("name") or raw.get("device_name") or serial),
@@ -119,12 +144,79 @@ def normalize_device(
         "output": output_power,
         "solar": first_number(values, "pv_power", "pv_power_total"),
         "temperature": first_number(values, "temperature"),
+        "charging": charging,
+        "discharging": discharging,
+        "runtimeHours": runtime,
         "telemetry": (
             "Cloud only (MQTT disabled)" if not mqtt_enabled else
             "MQTT" if fresh else "MQTT stale" if mqtt_age is not None else
             "Waiting for MQTT" if raw.get("mqtt_supported") else "Cloud only"
         ),
     }
+
+
+class Telemetry:
+    """Keep individual field receipt times, not freshness of accumulated caches."""
+
+    REQUEST_MODELS = {"A1761", "AS220", "A2345", "A91B2"}
+
+    def __init__(self, client, loop, stale_seconds: int) -> None:
+        self.client = client
+        self.loop = loop
+        self.stale_seconds = stale_seconds
+        self.reported: dict[str, dict[str, tuple[object, float]]] = {}
+        self.seen: dict[str, float] = {}
+        self.controllers: dict = {}
+        self.last_trigger = 0.0
+        self.last_status = 0.0
+        self.callback_error: str | None = None
+
+    def receive(self, session, topic, message, data, model, deviceSn, extracted_values, *args, **kwargs) -> None:
+        try:
+            self.client.mqtt_received(session, topic, message, data, model, deviceSn, extracted_values, *args, **kwargs)
+            self.loop.call_soon_threadsafe(self.record, deviceSn, dict(extracted_values), time.monotonic())
+        except Exception as error:
+            self.loop.call_soon_threadsafe(
+                setattr, self, "callback_error", f"MQTT decoding failed ({type(error).__name__})."
+            )
+
+    def record(self, serial: str, values: dict, received_at: float) -> None:
+        self.seen[serial] = received_at
+        fields = self.reported.setdefault(serial, {})
+        for key, value in values.items():
+            fields[key] = (value, received_at)
+
+    def current(self, serial: str, now: float) -> dict:
+        return {
+            key: value for key, (value, received_at) in self.reported.get(serial, {}).items()
+            if 0 <= now - received_at <= self.stale_seconds
+        }
+
+    def discover(self) -> None:
+        from anker_solix_api.mqtt_factory import SolixMqttDeviceFactory
+
+        active = set(self.client.devices)
+        self.controllers = {sn: controller for sn, controller in self.controllers.items() if sn in active}
+        for serial, device in list(self.client.devices.items()):
+            if device.get("device_pn") in self.REQUEST_MODELS and serial not in self.controllers:
+                controller = SolixMqttDeviceFactory(self.client, serial).create_device()
+                if controller is None:
+                    raise RuntimeError("Supported MQTT controller unavailable")
+                self.controllers[serial] = controller
+                self.last_trigger = self.last_status = 0.0
+
+    async def request(self, now: float) -> None:
+        if now - self.last_trigger >= 240:
+            for controller in self.controllers.values():
+                if "realtime_trigger" in controller.controls:
+                    if await controller.realtime_trigger(timeout=300) is None:
+                        raise RuntimeError("MQTT telemetry trigger failed")
+            self.last_trigger = now
+        if now - self.last_status >= min(60, self.stale_seconds / 2):
+            for controller in self.controllers.values():
+                if await controller.status_request() is None:
+                    raise RuntimeError("MQTT status request failed")
+            self.last_status = now
 
 
 def emit(payload: dict) -> None:
@@ -163,7 +255,6 @@ async def monitor() -> None:
     # Upstream debug logs can contain account data; only sanitized errors go to the UI.
     logger.disabled = True
     logging.disable(logging.CRITICAL)
-    mqtt_seen: dict[str, float] = {}
     devices: list[Device] = []
     fetched_at: str | None = None
     cloud_error: str | None = None
@@ -172,12 +263,9 @@ async def monitor() -> None:
     next_poll = next_details = 0.0
     loop = asyncio.get_running_loop()
 
-    def mqtt_updated(serial: str) -> None:
-        loop.call_soon_threadsafe(mqtt_seen.__setitem__, serial, time.monotonic())
-
     async with ClientSession(timeout=ClientTimeout(total=45)) as session:
         client = AnkerSolixApi(email, password, country, session, logger)
-        client.mqtt_update_callback(mqtt_updated)
+        telemetry = Telemetry(client, loop, stale_seconds)
         try:
             while True:
                 now = time.monotonic()
@@ -187,6 +275,8 @@ async def monitor() -> None:
                             await client.update_sites()
                             if now >= next_details:
                                 await client.update_device_details()
+                                if mqtt_enabled:
+                                    telemetry.discover()
                                 next_details = time.monotonic() + details_interval
                         fetched_at = datetime.now(timezone.utc).isoformat()
                         cloud_error = None
@@ -199,7 +289,7 @@ async def monitor() -> None:
                     if mqtt_enabled and cloud_error is None:
                         try:
                             async with asyncio.timeout(30):
-                                mqtt_session = await client.startMqttSession()
+                                mqtt_session = await client.startMqttSession(message_callback=telemetry.receive)
                                 if mqtt_session:
                                     expected_topics = subscribe_devices(mqtt_session, client.devices)
                             warning = None if mqtt_session else "MQTT connection failed; only cloud readings are available."
@@ -213,13 +303,26 @@ async def monitor() -> None:
                     warning = "Waiting for MQTT subscription acknowledgements; check account permissions if this persists."
                 elif connected and warning and warning.startswith("Waiting for MQTT"):
                     warning = None
+                if connected and cloud_error is None:
+                    try:
+                        async with asyncio.timeout(30):
+                            await telemetry.request(time.monotonic())
+                        if warning and warning.startswith("MQTT telemetry request failed"):
+                            warning = None
+                    except Exception as error:
+                        warning = f"MQTT telemetry request failed ({type(error).__name__}); retrying in 60 seconds."
+                        telemetry.last_status = time.monotonic()
+                        telemetry.last_trigger = telemetry.last_status - 180
+                if telemetry.callback_error:
+                    warning = telemetry.callback_error
                 if cloud_error is None:
                     now = time.monotonic()
                     devices = [
                         normalize_device(
                             serial, raw, client.sites,
-                            now - mqtt_seen[serial] if serial in mqtt_seen else None,
+                            now - telemetry.seen[serial] if serial in telemetry.seen else None,
                             connected, stale_seconds, mqtt_enabled,
+                            telemetry.current(serial, now),
                         )
                         for serial, raw in list(client.devices.items())
                     ]

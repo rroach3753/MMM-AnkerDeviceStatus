@@ -6,7 +6,7 @@ import os
 import unittest
 from unittest.mock import AsyncMock, patch
 
-from anker_bridge import interval, monitor, normalize_device, number, power_total, subscribe_devices
+from anker_bridge import Telemetry, interval, monitor, normalize_device, number, power_total, subscribe_devices
 
 
 class NormalizationTests(unittest.TestCase):
@@ -64,6 +64,29 @@ class NormalizationTests(unittest.TestCase):
                 with self.assertRaises(ValueError):
                     interval("ANKER_POLL_INTERVAL", 300, 60)
 
+    def test_runtime_requires_fresh_discharge_evidence(self):
+        cases = [
+            ("AS220", {"battery_status": 1, "remaining_time_hours": 2.5}, True, 2.5),
+            ("AS220", {"battery_status": 2, "remaining_time_hours": 2.5}, False, None),
+            ("AS220", {"battery_status": 0, "remaining_time_hours": 2.5}, False, None),
+            ("AS220", {"remaining_time_hours": 2.5}, None, None),
+            ("AS220", {"battery_status": 1, "remaining_time_hours": -1}, True, None),
+            ("A1761", {"charging_status": 0, "ac_input_power": 0, "dc_input_power": 0,
+                        "output_power_total": 100, "remaining_time_hours": 0}, True, 0),
+            ("A1761", {"charging_status": 0, "ac_input_power": 0,
+                        "output_power_total": 100, "remaining_time_hours": 2}, None, None),
+            ("A1761", {"charging_status": 0, "input_power": 100,
+                        "output_power_total": 100, "remaining_time_hours": 2}, False, None),
+        ]
+        for model, values, discharge, runtime in cases:
+            with self.subTest(model=model, values=values):
+                device = normalize_device("sn", {"device_pn": model}, {}, 0, True, 60, True, values)
+                self.assertEqual(device["discharging"], discharge)
+                self.assertEqual(device["runtimeHours"], runtime)
+                stale = normalize_device("sn", {"device_pn": model}, {}, 61, True, 60, True, values)
+                self.assertIsNone(stale["runtimeHours"])
+                self.assertIsNone(stale["discharging"])
+
     def test_disabled_mqtt_is_explicit(self):
         device = normalize_device("serial", {"mqtt_supported": True}, {}, None, False, 600, False)
         self.assertEqual(device["telemetry"], "Cloud only (MQTT disabled)")
@@ -96,6 +119,45 @@ class NormalizationTests(unittest.TestCase):
 
 
 class MonitorTests(unittest.IsolatedAsyncioTestCase):
+    async def test_read_only_requests_are_throttled(self):
+        controller = type("Controller", (), {
+            "controls": {"realtime_trigger": {}},
+            "realtime_trigger": AsyncMock(return_value={}),
+            "status_request": AsyncMock(return_value={}),
+        })()
+        telemetry = Telemetry(None, asyncio.get_running_loop(), 600)
+        telemetry.controllers = {"serial": controller}
+        await telemetry.request(1000)
+        await telemetry.request(1015)
+        controller.realtime_trigger.assert_awaited_once_with(timeout=300)
+        controller.status_request.assert_awaited_once()
+        await telemetry.request(1060)
+        self.assertEqual(controller.status_request.await_count, 2)
+        await telemetry.request(1240)
+        self.assertEqual(controller.realtime_trigger.await_count, 2)
+
+    async def test_field_freshness_and_model_specific_charging(self):
+        telemetry = Telemetry(None, asyncio.get_running_loop(), 60)
+        telemetry.record("station", {"battery_soc": 80, "temperature": 25, "charging_status": 1}, 100)
+        telemetry.record("station", {"input_power": 0}, 150)
+        current = telemetry.current("station", 170)
+        self.assertEqual(current, {"input_power": 0})
+        device = normalize_device("station", {
+            "device_pn": "A1761", "mqtt_data": {"battery_soc": 80, "charging_status": 1},
+        }, {}, 20, True, 60, True, current)
+        self.assertIsNone(device["battery"])
+        self.assertIsNone(device["temperature"])
+        self.assertIsNone(device["charging"])
+        for model, field, state, expected in (
+            ("A1761", "charging_status", 0, False),
+            ("A1761", "charging_status", 3, True),
+            ("AS220", "battery_status", 1, False),
+            ("AS220", "battery_status", 2, True),
+            ("AS220", "battery_status", 4, None),
+        ):
+            device = normalize_device("station", {"device_pn": model}, {}, 0, True, 60, True, {field: state})
+            self.assertEqual(device["charging"], expected)
+
     async def test_poll_discovery_mqtt_and_cleanup(self):
         class Client:
             def __init__(self, *args):

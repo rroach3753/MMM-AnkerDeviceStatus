@@ -1,21 +1,52 @@
 .anker-status {
-  min-width: 240px;
-  max-width: 380px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  column-gap: 24px;
+  width: min(660px, calc(100vw - 120px));
   text-align: left;
 }
 
+.anker-status > :not(.anker-card) {
+  grid-column: 1 / -1;
+}
+
 .anker-status .anker-title {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 12px;
   margin-bottom: 12px;
   font-size: 24px;
 }
 
 .anker-status .anker-card {
+  min-width: 0;
+  overflow-wrap: anywhere;
   padding: 12px 0;
   border-bottom: 1px solid #444;
 }
 
 .anker-status .anker-name {
   font-size: 20px;
+}
+
+.anker-status .anker-device-header {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 8px;
+}
+
+.anker-status .anker-connection,
+.anker-status .anker-charging {
+  white-space: nowrap;
+}
+
+.anker-status .anker-connection::before,
+.anker-status .anker-charging::before {
+  content: "|";
+  margin-right: 8px;
+  color: #999;
 }
 
 .anker-status .anker-metrics {
@@ -25,7 +56,11 @@
 .anker-status .anker-metric {
   display: flex;
   justify-content: space-between;
-  gap: 24px;
+  gap: 12px;
+}
+
+.anker-status .anker-metric .bright {
+  white-space: nowrap;
 }
 
 .anker-status .anker-battery-track {
@@ -61,7 +96,7 @@
 }
 
 .anker-status .anker-updated {
-  margin-top: 10px;
+  white-space: nowrap;
 }
 
 .anker-status.anker-compact .anker-card {
