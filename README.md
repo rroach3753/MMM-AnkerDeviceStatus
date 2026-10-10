@@ -62,7 +62,7 @@ An account listing does not prove a device is online.
 
 ## Requirements
 
-- MagicMirror² with Node.js 20+.
+- MagicMirror² with Node.js 20.12 or newer (`node --run` is used for project scripts).
 - Python 3.12 or newer (upstream currently supports 3.12–3.14), pip and Git.
 - Internet access to Anker's HTTPS API and MQTT service.
 - An Anker email/password account and its correct two-letter country code.
@@ -111,6 +111,8 @@ For example, configure your service/PM2 environment and restart MagicMirror.
 
 Add to your MagicMirror configuration:
 
+### MagicMirror configuration example
+
 ```javascript
 {
   module: "MMM-AnkerDeviceStatus",
@@ -126,6 +128,23 @@ Add to your MagicMirror configuration:
 ```
 
 Restart MagicMirror after changing credentials or polling settings.
+
+## Updating
+
+From the module directory, fetch the latest version and refresh the Python
+dependencies:
+
+```sh
+git pull --ff-only
+.venv/bin/python -m pip install -r requirements.txt
+node --run check
+node --run test
+node --run lint
+```
+
+Create the `.venv` first if it does not exist. Keep your `.env` file; updating
+the source does not require replacing it. Restart MagicMirror after updating.
+On Windows, use `.venv\Scripts\python.exe` for the Python command.
 
 ## Display configuration
 
@@ -201,11 +220,15 @@ hide the runtime row. Runtime accuracy depends on the device and current load.
 
 ## Validation
 
-No npm dependencies are needed for this module's tests:
+JavaScript tests use Node's built-in test runner. ESLint is a development
+dependency; Python runtime dependencies are declared in `requirements.txt`.
+Running ESLint 10 requires Node.js 20.19 or newer; the module itself supports
+Node.js 20.12 and newer.
 
 ```sh
-npm run check
-npm test
+node --run check
+node --run test
+node --run lint
 .venv/bin/python -m unittest discover -s tests -p 'test_*.py'
 ```
 

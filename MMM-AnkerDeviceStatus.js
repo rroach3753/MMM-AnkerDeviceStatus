@@ -1,4 +1,3 @@
-/* global Module */
 Module.register("MMM-AnkerDeviceStatus", {
   defaults: {
     title: "Anker Power",

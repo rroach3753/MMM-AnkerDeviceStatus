@@ -3,9 +3,26 @@
   "version": "1.0.0",
   "private": true,
   "description": "Read-only Anker SOLIX and supported Wi-Fi power device status for MagicMirror",
-  "engines": { "node": ">=20" },
+  "keywords": [
+    "magicmirror",
+    "magicmirror-module",
+    "anker",
+    "anker-solix",
+    "solix",
+    "energy-monitor",
+    "iot"
+  ],
+  "engines": {
+    "node": ">=20.12"
+  },
   "scripts": {
     "test": "node --test tests/*.test.js",
-    "check": "node --check MMM-AnkerDeviceStatus.js && node --check node_helper.js"
+    "check": "node --check MMM-AnkerDeviceStatus.js && node --check node_helper.js",
+    "lint": "eslint MMM-AnkerDeviceStatus.js node_helper.js tests/*.test.js"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.12.0",
+    "globals": "^17.13.0"
   }
 }
