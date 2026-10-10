@@ -25,6 +25,8 @@ low-battery highlighting, and explicit unavailable/stale-data messages.
 Open [examples/preview.html](examples/preview.html) in a browser for a sample
 layout without credentials. All values in that preview are fictional.
 
+![Anker SOLIX devices displayed side by side in MagicMirror](images/anker-solix-status.png)
+
 The display defaults to **SOLIX devices only**. Prime chargers, charging bases,
 power banks and unclassified devices are hidden, regardless of their custom
 names. Set `solixOnly: false` to include the wider Anker device list.
@@ -69,6 +71,88 @@ An account listing does not prove a device is online.
   Use the owner account for the most complete device discovery.
 
 ## Installation
+
+### Install with MMPM (MagicMirror Package Manager)
+
+Install the module and move into its directory:
+
+```sh
+mmpm install MMM-AnkerDeviceStatus
+cd ~/MagicMirror/modules/MMM-AnkerDeviceStatus
+```
+
+MMPM installs the module files; it does not install the Python runtime or the
+Python packages this module needs. Create the module's virtual environment
+using Python 3.12–3.14. For example, if Python 3.13 is installed:
+
+```sh
+python3.13 -m venv .venv
+.venv/bin/python -m pip install -r requirements.txt
+```
+
+If the host only has an older Python (for example, Python 3.11), install
+[uv](https://docs.astral.sh/uv/getting-started/installation/), then install a
+supported Python and use it to create the environment:
+
+```sh
+uv python install 3.13
+uv venv --python 3.13 .venv
+uv pip install --python .venv/bin/python -r requirements.txt
+```
+
+### Create or recreate the Python virtual environment
+
+Use these steps after installing with MMPM if `.venv` is missing, or to rebuild
+it if its Python packages are damaged or out of date. Run them on the
+MagicMirror host from the module directory. Stop MagicMirror first so its Anker
+helper is not using the environment:
+
+```sh
+cd ~/MagicMirror/modules/MMM-AnkerDeviceStatus
+```
+
+With Python 3.12–3.14 installed, create or clear the module's virtual
+environment, then install all declared dependencies. Substitute the
+appropriate interpreter command if needed (for example, `python3.12`):
+
+```sh
+python3.13 -m venv --clear .venv
+.venv/bin/python -m pip install --upgrade pip
+.venv/bin/python -m pip install -r requirements.txt
+```
+
+If the system Python is too old, use `uv` to install Python 3.13 and recreate
+the environment instead:
+
+```sh
+uv python install 3.13
+uv venv --clear --python 3.13 .venv
+uv pip install --python .venv/bin/python -r requirements.txt
+```
+
+On Windows, use `py -3.13 -m venv --clear .venv` to create or recreate the
+environment, then install dependencies with
+`.venv\Scripts\python.exe -m pip install -r requirements.txt`.
+
+Recreating `.venv` does not change `.env` or MagicMirror's `config.js`; keep
+both files. It does replace the installed Python packages and their local
+authentication cache, so the module may need to authenticate with Anker again.
+Start MagicMirror after installation completes.
+
+Set Anker credentials either in the MagicMirror launch environment or in the
+module's `.env` file. To create the file from the provided template:
+
+```sh
+cp .env.example .env
+chmod 600 .env
+```
+
+Edit `.env` with your Anker email, password, and country code as described
+below. Keep it private; never add credentials to `config.js`. Add or retain the
+module's configuration entry in MagicMirror's `config.js`, then restart
+MagicMirror. See the [configuration example](#magicmirror-configuration-example).
+
+### Install manually with Git
 
 On the **machine running MagicMirror**, clone the module into your
 MagicMirror modules directory:
