@@ -25,8 +25,6 @@ low-battery highlighting, and explicit unavailable/stale-data messages.
 Open [examples/preview.html](examples/preview.html) in a browser for a sample
 layout without credentials. All values in that preview are fictional.
 
-![Anker SOLIX devices displayed side by side in MagicMirror](images/anker-solix-status.png)
-
 The display defaults to **SOLIX devices only**. Prime chargers, charging bases,
 power banks and unclassified devices are hidden, regardless of their custom
 names. Set `solixOnly: false` to include the wider Anker device list.
@@ -36,6 +34,10 @@ warnings, and cloud-poll timestamp span both columns. The module is 660px wide,
 limited by the viewport width; long device names wrap within their column.
 Each card header shows the device name, connection status, and available charging
 status together, wrapping when needed. Model numbers are not displayed.
+
+## Screenshots
+
+![Anker SOLIX devices displayed side by side in MagicMirror](images/anker-solix-status.png)
 
 ## Compatibility
 
