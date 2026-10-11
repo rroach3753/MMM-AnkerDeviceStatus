@@ -35,10 +35,6 @@ limited by the viewport width; long device names wrap within their column.
 Each card header shows the device name, connection status, and available charging
 status together, wrapping when needed. Model numbers are not displayed.
 
-## Screenshots
-
-![Anker SOLIX devices displayed side by side in MagicMirror](images/anker-solix-status.png)
-
 ## Compatibility
 
 Uses the unofficial [anker-solix-api](https://github.com/thomluther/anker-solix-api)
@@ -328,3 +324,7 @@ node --run lint
 Tests cover normalization, missing/zero/stale values, polling/MQTT setup,
 rendering, filtering, instance isolation, shared workers and failure recovery.
 Real account/device compatibility must be checked with your own account.
+
+## Screenshots
+
+![Anker SOLIX devices displayed side by side in MagicMirror](images/anker-solix-status.png)
