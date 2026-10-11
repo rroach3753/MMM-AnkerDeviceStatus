@@ -193,22 +193,29 @@ interpreter, set `ANKER_PYTHON` to its absolute path in the **environment that
 launches MagicMirror** (not in `.env`, which is loaded after Python starts).
 For example, configure your service/PM2 environment and restart MagicMirror.
 
-Add to your MagicMirror configuration:
+## Configuration
 
 ### MagicMirror configuration example
 
-```javascript
-{
-  module: "MMM-AnkerDeviceStatus",
-  position: "top_right",
-  config: {
-    title: "Anker Power",
-    showOffline: true,
-    showBattery: true,
-    showPower: true,
-    compact: false
+Add the module entry to the existing `modules` array in
+`~/MagicMirror/config/config.js`. Keep your other module entries; the example
+below shows only this module. Anker credentials belong in `.env` or the
+MagicMirror launch environment, not in `config.js`.
+
+```js
+modules: [
+  {
+    module: "MMM-AnkerDeviceStatus",
+    position: "top_right",
+    config: {
+      title: "Anker Power",
+      showOffline: true,
+      showBattery: true,
+      showPower: true,
+      compact: false
+    }
   }
-}
+],
 ```
 
 Restart MagicMirror after changing credentials or polling settings.
