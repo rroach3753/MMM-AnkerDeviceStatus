@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "type": "commonjs",
   "private": true,
+  "license": "MIT",
   "description": "Read-only Anker SOLIX and supported Wi-Fi power device status for MagicMirror",
   "keywords": [
     "magicmirror",
