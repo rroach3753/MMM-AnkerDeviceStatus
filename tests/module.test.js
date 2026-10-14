@@ -172,11 +172,36 @@ test("groups name, connection and charging in the header without a model number"
   const header = card.children[0];
   assert.equal(header.className, "anker-device-header");
   assert.equal(header.children[0].textContent, "Office");
-  assert.equal(header.children[1].textContent, "Online");
-  assert.equal(header.children[2].textContent, "Not Charging");
+  assert.equal(header.children[1].textContent, "FW");
+  assert.equal(header.children[2].textContent, "Online");
+  assert.equal(header.children[3].textContent, "Not Charging");
   assert.doesNotMatch(text(card), /A1761/);
   module.config.showCharging = false;
   assert.doesNotMatch(text(module.getDom()), /Not Charging/);
+});
+
+test("shows firmware status beside the device name without guessing unknown state", () => {
+  const module = frontend();
+  module.state = { devices: [
+    { ...station, id: "current", name: "Current", firmwareUpdate: false },
+    { ...station, id: "update", name: "Update", firmwareUpdate: true },
+    { ...station, id: "unknown", name: "Unknown", firmwareUpdate: null }
+  ] };
+  const cards = module.getDom().children.filter((child) => child.className === "anker-card");
+  const firmware = cards.map((card) => card.children[0].children[1]);
+  assert.deepEqual(firmware.map((label) => label.textContent), ["FW", "FW", "FW"]);
+  assert.deepEqual(firmware.map((label) => label.className), [
+    "anker-firmware anker-firmware-current",
+    "anker-firmware anker-firmware-update",
+    "anker-firmware anker-firmware-unknown"
+  ]);
+  assert.deepEqual(firmware.map((label) => label.attributes["aria-label"]), [
+    "Firmware up to date",
+    "Firmware update available",
+    "Firmware status unavailable"
+  ]);
+  module.config.showFirmware = false;
+  assert.doesNotMatch(text(module.getDom()), /FW/);
 });
 
 test("formats runtime only during discharge and handles missing data", () => {

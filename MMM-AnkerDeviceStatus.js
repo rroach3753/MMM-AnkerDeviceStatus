@@ -11,6 +11,7 @@ Module.register("MMM-AnkerDeviceStatus", {
     showTemperature: false,
     showCharging: true,
     showRuntime: true,
+    showFirmware: true,
     showUpdated: true,
     compact: false
   },
@@ -96,6 +97,16 @@ Module.register("MMM-AnkerDeviceStatus", {
       const name = this.config.deviceNames[device.id] || device.name;
       const header = this.element("div", "anker-device-header");
       header.appendChild(this.element("span", "anker-name bright", name));
+      if (this.config.showFirmware) {
+        const firmware = device.firmwareUpdate === false ? "current" :
+          device.firmwareUpdate === true ? "update" : "unknown";
+        const label = firmware === "current" ? "Firmware up to date" :
+          firmware === "update" ? "Firmware update available" : "Firmware status unavailable";
+        const indicator = this.element("span", `anker-firmware anker-firmware-${firmware}`, "FW");
+        indicator.setAttribute("aria-label", label);
+        indicator.setAttribute("title", label);
+        header.appendChild(indicator);
+      }
       const connection = device.online === true ? "Online" : device.online === false ? "Offline" : "Status unknown";
       header.appendChild(this.element("span", `anker-connection xsmall${device.online === false ? " dimmed" : ""}`,
         connection));

@@ -33,6 +33,7 @@ class Device(TypedDict):
     charging: bool | None
     discharging: bool | None
     runtimeHours: float | None
+    firmwareUpdate: bool | None
     telemetry: str
 
 
@@ -147,6 +148,9 @@ def normalize_device(
         "charging": charging,
         "discharging": discharging,
         "runtimeHours": runtime,
+        "firmwareUpdate": (
+            raw["is_ota_update"] if isinstance(raw.get("is_ota_update"), bool) else None
+        ),
         "telemetry": (
             "Cloud only (MQTT disabled)" if not mqtt_enabled else
             "MQTT" if fresh else "MQTT stale" if mqtt_age is not None else

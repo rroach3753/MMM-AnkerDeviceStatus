@@ -58,6 +58,12 @@ class NormalizationTests(unittest.TestCase):
         self.assertEqual(device["site"], "Home")
         self.assertFalse(device["online"])
 
+    def test_firmware_update_state_is_explicit_and_unknown_when_missing(self):
+        for raw_value, expected in ((True, True), (False, False), (None, None), ("false", None), (1, None)):
+            with self.subTest(raw_value=raw_value):
+                device = self.device({"is_ota_update": raw_value})
+                self.assertEqual(device["firmwareUpdate"], expected)
+
     def test_interval_validation(self):
         for value in ("abc", "0", "59"):
             with patch.dict(os.environ, {"ANKER_POLL_INTERVAL": value}):

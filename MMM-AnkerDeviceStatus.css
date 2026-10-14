@@ -30,6 +30,42 @@
   font-size: 20px;
 }
 
+.anker-status .anker-firmware {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  white-space: nowrap;
+}
+
+.anker-status .anker-firmware::after {
+  content: "";
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #999;
+}
+
+.anker-status .anker-firmware-current::after {
+  background: #45d483;
+  animation: anker-firmware-pulse 1.4s ease-in-out infinite;
+}
+
+.anker-status .anker-firmware-update::after {
+  background: #ff5555;
+  animation: anker-firmware-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes anker-firmware-pulse {
+  50% { opacity: 0.25; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .anker-status .anker-firmware-current::after,
+  .anker-status .anker-firmware-update::after {
+    animation: none;
+  }
+}
+
 .anker-status .anker-device-header {
   display: flex;
   align-items: baseline;

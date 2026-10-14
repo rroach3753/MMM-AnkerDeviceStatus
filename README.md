@@ -248,6 +248,7 @@ On Windows, use `.venv\Scripts\python.exe` for the Python command.
 | `showTemperature` | `false` | Temperature in Celsius and Fahrenheit when provided by MQTT |
 | `showCharging` | `true` | Charging/not-charging state for C1000 (A1761) and S2000 (AS220); unknown is explicit |
 | `showRuntime` | `true` | Device-reported remaining hours/minutes while discharging; hidden when idle/charging, `--` if unknown |
+| `showFirmware` | `true` | Firmware status beside the device name: blinking green when current, blinking red when an update is available; neutral when unknown |
 | `showUpdated` | `true` | Age of the last successful HTTP cloud poll beside the module title |
 | `compact` | `false` | Smaller cards |
 
@@ -273,6 +274,10 @@ Set these in `.env` or MagicMirror's process environment:
 MQTT-backed cards refresh about every 15 seconds; that does not increase HTTP
 polling. Cloud data is often already delayed by Anker. A fetched timestamp
 indicates a successful cloud poll, **not** a fresh measurement from every device.
+Firmware status uses Anker's cloud OTA check during device-detail polling
+(every 30 minutes by default). Anker may omit update information for devices
+that are not owned by the signed-in account; those devices show a neutral
+unknown indicator rather than being assumed current.
 Individual MQTT fields expire independently: unrelated packets do not refresh
 old battery, temperature or charging readings. Charging uses the model-specific
 reported state, not a guess from wattage. Expired/disconnected MQTT readings fall back to available HTTP values, otherwise
