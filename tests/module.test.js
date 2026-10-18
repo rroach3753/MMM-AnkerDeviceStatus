@@ -301,3 +301,22 @@ test("reports spawn errors without exposing credentials", () => {
   assert.doesNotMatch(messages.at(-1)[1].error, /private details/);
   helper.stop();
 });
+
+test("rejects malformed device records and timestamps without losing good data", () => {
+  for (const invalidState of [
+    { devices: [null], fetchedAt: null },
+    { devices: [{ ...station, telemetry: 42 }], fetchedAt: null },
+    { devices: [{ ...station, battery: "50" }], fetchedAt: null },
+    { devices: [station], fetchedAt: "not-a-date" },
+    { devices: [station], fetchedAt: null, warning: {} }
+  ]) {
+    const { helper, worker, messages } = backend();
+    helper.socketNotificationReceived("ANKER_SUBSCRIBE", { instanceId: "one" });
+    worker().stdout.emit("data", JSON.stringify({ devices: [station], fetchedAt: null }) + "\n");
+    worker().stdout.emit("data", JSON.stringify(invalidState) + "\n");
+    assert.match(messages.at(-1)[1].error, /invalid data/);
+    assert.equal(messages.at(-1)[1].devices[0].id, station.id);
+    assert.equal(worker().killed, true);
+    helper.stop();
+  }
+});

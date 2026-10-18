@@ -2,6 +2,16 @@ const NodeHelper = require("node_helper");
 const { spawn } = require("node:child_process");
 const path = require("node:path");
 
+function isDevice(device) {
+  return device && typeof device === "object" && !Array.isArray(device) &&
+    ["id", "name", "model", "type", "status", "telemetry"].every((key) => typeof device[key] === "string") &&
+    (device.site == null || typeof device.site === "string") &&
+    ["battery", "input", "output", "solar", "temperature", "runtimeHours"].every((key) =>
+      device[key] == null || (typeof device[key] === "number" && Number.isFinite(device[key]))) &&
+    ["online", "charging", "discharging", "firmwareUpdate"].every((key) =>
+      device[key] == null || typeof device[key] === "boolean");
+}
+
 module.exports = NodeHelper.create({
   start() {
     this.clients = new Set();
@@ -18,15 +28,13 @@ module.exports = NodeHelper.create({
       console.error("[MMM-AnkerDeviceStatus] Invalid subscription payload.");
       return;
     }
-    if (notification === "ANKER_SUBSCRIBE") {
-      if (!this.clients.has(payload.instanceId) && this.clients.size >= 32) {
-        console.error("[MMM-AnkerDeviceStatus] Subscription limit reached.");
-        return;
-      }
-      this.clients.add(payload.instanceId);
-      if (this.latest) this.sendState(payload.instanceId);
-      this.ensureWorker();
+    if (!this.clients.has(payload.instanceId) && this.clients.size >= 32) {
+      console.error("[MMM-AnkerDeviceStatus] Subscription limit reached.");
+      return;
     }
+    this.clients.add(payload.instanceId);
+    if (this.latest) this.sendState(payload.instanceId);
+    this.ensureWorker();
   },
 
   sendState(instanceId) {
@@ -86,8 +94,10 @@ module.exports = NodeHelper.create({
         try {
           const state = JSON.parse(line);
           if (!state || !Array.isArray(state.devices) ||
-              !(state.fetchedAt === null || typeof state.fetchedAt === "string") ||
-              !(state.error == null || typeof state.error === "string")) {
+              !state.devices.every(isDevice) ||
+              !(state.fetchedAt === null || (typeof state.fetchedAt === "string" && Number.isFinite(Date.parse(state.fetchedAt)))) ||
+              !(state.error == null || typeof state.error === "string") ||
+              !(state.warning == null || typeof state.warning === "string")) {
             throw new Error("Invalid state");
           }
           reportedError = Boolean(state.error);

@@ -333,6 +333,12 @@ Tests cover normalization, missing/zero/stale values, polling/MQTT setup,
 rendering, filtering, instance isolation, shared workers and failure recovery.
 Real account/device compatibility must be checked with your own account.
 
+CI runs JavaScript checks on Node.js 20, 22, and 24, and bridge tests on
+Python 3.12, 3.13, and 3.14. Worker messages are validated before publication;
+invalid device records or timestamps retain the last good readings and report
+an error. Stopping the display clears its rendering timer without changing
+server-owned account polling.
+
 ## Screenshots
 
 ![Anker SOLIX devices displayed side by side in MagicMirror](images/anker-solix-status.png)

@@ -1,3 +1,10 @@
+const ANKER_SOLIX_TYPES = new Set([
+  "solarbank", "solarbank_pps", "pps", "powerpanel", "hes",
+  "home_backup", "combiner_box", "inverter", "smartmeter", "smartplug",
+  "ev_charger", "powercooler", "generator"
+]);
+const ANKER_RUNTIME_MODELS = new Set(["A1761", "AS220"]);
+
 Module.register("MMM-AnkerDeviceStatus", {
   defaults: {
     title: "Anker Power",
@@ -26,6 +33,10 @@ Module.register("MMM-AnkerDeviceStatus", {
   suspend() {
     this.suspended = true;
     clearInterval(this.ageTimer);
+  },
+
+  stop() {
+    this.suspend();
   },
 
   resume() {
@@ -79,11 +90,7 @@ Module.register("MMM-AnkerDeviceStatus", {
     if (this.state.error) wrapper.appendChild(this.element("div", "anker-error small", this.state.error));
     if (this.state.warning) wrapper.appendChild(this.element("div", "anker-warning small", this.state.warning));
     const devices = this.state.devices.filter((device) =>
-      (!this.config.solixOnly || [
-        "solarbank", "solarbank_pps", "pps", "powerpanel", "hes",
-        "home_backup", "combiner_box", "inverter", "smartmeter", "smartplug",
-        "ev_charger", "powercooler", "generator"
-      ].includes(device.type) || device.model === "AS200") &&
+      (!this.config.solixOnly || ANKER_SOLIX_TYPES.has(device.type) || device.model === "AS200") &&
       (this.config.showOffline || device.online !== false) &&
       (this.config.showCloudOnly || !device.telemetry.startsWith("Cloud only")) &&
       (!this.config.deviceIds.length || this.config.deviceIds.includes(device.id))
@@ -109,7 +116,7 @@ Module.register("MMM-AnkerDeviceStatus", {
       const connection = device.online === true ? "Online" : device.online === false ? "Offline" : "Status unknown";
       header.appendChild(this.element("span", `anker-connection xsmall${device.online === false ? " dimmed" : ""}`,
         connection));
-      if (this.config.showCharging && ["A1761", "AS220"].includes(device.model)) {
+      if (this.config.showCharging && ANKER_RUNTIME_MODELS.has(device.model)) {
         const charging = device.charging === true ? "Charging" :
           device.charging === false ? "Not Charging" : "Charging status unavailable";
         header.appendChild(this.element("span", "anker-charging xsmall", charging));
@@ -148,7 +155,7 @@ Module.register("MMM-AnkerDeviceStatus", {
         row.appendChild(this.element("span", "bright", reading));
         metrics.appendChild(row);
       }
-      if (this.config.showRuntime && ["A1761", "AS220"].includes(device.model) &&
+      if (this.config.showRuntime && ANKER_RUNTIME_MODELS.has(device.model) &&
           device.discharging !== false) {
         const row = this.element("div", "anker-metric");
         const hours = device.runtimeHours;
