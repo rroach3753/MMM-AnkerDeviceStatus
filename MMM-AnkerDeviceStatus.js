@@ -26,7 +26,6 @@ Module.register("MMM-AnkerDeviceStatus", {
   suspend() {
     this.suspended = true;
     clearInterval(this.ageTimer);
-    this.sendSocketNotification("ANKER_UNSUBSCRIBE", { instanceId: this.identifier });
   },
 
   resume() {

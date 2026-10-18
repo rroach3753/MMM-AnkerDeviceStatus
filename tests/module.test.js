@@ -258,7 +258,25 @@ test("shares one worker, parses fragmented responses, and targets subscribers", 
   helper.socketNotificationReceived("ANKER_UNSUBSCRIBE", { instanceId: "one" });
   assert.equal(worker().killed, undefined);
   helper.socketNotificationReceived("ANKER_UNSUBSCRIBE", { instanceId: "two" });
+  assert.equal(worker().killed, undefined);
+  assert.equal(helper.clients.size, 2);
+  helper.stop();
   assert.equal(worker().killed, true);
+  assert.equal(helper.clients.size, 0);
+});
+
+test("rejects malformed subscriptions and bounds retained routing IDs", () => {
+  const { helper, spawns } = backend();
+  for (const instanceId of [null, {}, "", "x".repeat(129)]) {
+    helper.socketNotificationReceived("ANKER_SUBSCRIBE", { instanceId });
+  }
+  assert.equal(spawns(), 0);
+  for (let index = 0; index < 40; index++) {
+    helper.socketNotificationReceived("ANKER_SUBSCRIBE", { instanceId: `instance-${index}` });
+  }
+  assert.equal(helper.clients.size, 32);
+  assert.equal(spawns(), 1);
+  helper.stop();
 });
 
 test("rejects bad helper output, preserves good data, and retries worker exits", () => {

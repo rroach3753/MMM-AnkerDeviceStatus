@@ -312,6 +312,11 @@ hide the runtime row. Runtime accuracy depends on the device and current load.
 
 ## Validation
 
+Monitoring uses one server-owned worker. Suspending a display pauses rendering,
+not account polling; browser unsubscribe messages cannot stop other displays.
+The worker stops with the MagicMirror helper lifecycle. Routing IDs are
+validated and limited to 32 retained subscriptions per helper run.
+
 JavaScript tests use Node's built-in test runner. ESLint is a development
 dependency; Python runtime dependencies are declared in `requirements.txt`.
 Running ESLint 10 requires Node.js 20.19 or newer; the module itself supports

@@ -12,14 +12,20 @@ module.exports = NodeHelper.create({
   },
 
   socketNotificationReceived(notification, payload) {
-    if (!payload || typeof payload.instanceId !== "string") return;
+    if (notification !== "ANKER_SUBSCRIBE") return;
+    if (!payload || typeof payload.instanceId !== "string" ||
+        !/^[A-Za-z0-9._:-]{1,128}$/.test(payload.instanceId)) {
+      console.error("[MMM-AnkerDeviceStatus] Invalid subscription payload.");
+      return;
+    }
     if (notification === "ANKER_SUBSCRIBE") {
+      if (!this.clients.has(payload.instanceId) && this.clients.size >= 32) {
+        console.error("[MMM-AnkerDeviceStatus] Subscription limit reached.");
+        return;
+      }
       this.clients.add(payload.instanceId);
       if (this.latest) this.sendState(payload.instanceId);
       this.ensureWorker();
-    } else if (notification === "ANKER_UNSUBSCRIBE") {
-      this.clients.delete(payload.instanceId);
-      if (!this.clients.size) this.stop();
     }
   },
 
@@ -118,6 +124,7 @@ module.exports = NodeHelper.create({
   },
 
   stop() {
+    this.clients.clear();
     clearTimeout(this.retryTimer);
     clearTimeout(this.watchdog);
     this.retryTimer = null;
