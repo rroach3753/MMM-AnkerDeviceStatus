@@ -93,6 +93,38 @@ class NormalizationTests(unittest.TestCase):
                 self.assertIsNone(stale["runtimeHours"])
                 self.assertIsNone(stale["discharging"])
 
+    def test_charge_time_requires_fresh_charging_and_remaining_time(self):
+        for model, field, charging_state, idle_state in (
+            ("AS220", "battery_status", 2, 0),
+            ("A1761", "charging_status", 1, 0),
+        ):
+            for remaining, expected in ((1.5, 1.5), (0, 0), (-1, None),
+                                        (None, None), ("NaN", None), ("Infinity", None)):
+                with self.subTest(model=model, remaining=remaining):
+                    values = {field: charging_state, "remaining_time_hours": remaining}
+                    device = normalize_device("sn", {"device_pn": model}, {}, 0, True, 60, True, values)
+                    self.assertEqual(device["chargeTimeHours"], expected)
+                    self.assertIsNone(device["runtimeHours"])
+                    for age, connected in ((61, True), (0, False)):
+                        stale = normalize_device("sn", {"device_pn": model}, {}, age, connected, 60, True, values)
+                        self.assertIsNone(stale["chargeTimeHours"])
+            for values in (
+                {field: idle_state, "remaining_time_hours": 2},
+                {"remaining_time_hours": 2},
+                {field: charging_state},
+            ):
+                device = normalize_device("sn", {"device_pn": model}, {}, 0, True, 60, True, values)
+                self.assertIsNone(device["chargeTimeHours"])
+
+    def test_charge_time_expires_independently_of_charging_status(self):
+        telemetry = Telemetry(None, None, 60)
+        telemetry.record("sn", {"remaining_time_hours": 1.5}, 100)
+        telemetry.record("sn", {"battery_status": 2}, 150)
+        device = normalize_device("sn", {"device_pn": "AS220"}, {}, 20, True, 60, True,
+                                  telemetry.current("sn", 170))
+        self.assertTrue(device["charging"])
+        self.assertIsNone(device["chargeTimeHours"])
+
     def test_disabled_mqtt_is_explicit(self):
         device = normalize_device("serial", {"mqtt_supported": True}, {}, None, False, 600, False)
         self.assertEqual(device["telemetry"], "Cloud only (MQTT disabled)")

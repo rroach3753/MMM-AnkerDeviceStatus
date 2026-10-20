@@ -1,6 +1,6 @@
 # MMM-AnkerDeviceStatus
 
-**Release: `1.0.0`.**
+**Release: `1.2.0`.**
 
 Automated tests and the live mirror layout have been verified.
 Live authentication/discovery and battery, temperature, and charging-state
@@ -248,6 +248,7 @@ On Windows, use `.venv\Scripts\python.exe` for the Python command.
 | `showTemperature` | `false` | Temperature in Celsius and Fahrenheit when provided by MQTT |
 | `showCharging` | `true` | Charging/not-charging state for C1000 (A1761) and S2000 (AS220); unknown is explicit |
 | `showRuntime` | `true` | Device-reported remaining hours/minutes while discharging; hidden when idle/charging, `--` if unknown |
+| `showChargeTime` | `true` | Time to full for charging C1000 (A1761) and S2000 (AS220) devices; `--` if the estimate is unavailable |
 | `showFirmware` | `true` | Firmware status beside the device name: blinking green when current, blinking red when an update is available; neutral when unknown |
 | `showUpdated` | `true` | Age of the last successful HTTP cloud poll beside the module title |
 | `compact` | `false` | Smaller cards |
@@ -286,6 +287,11 @@ and zero battery are preserved. During an HTTP failure the last successful
 cards remain visible with an error and their cloud-poll age.
 
 Runtime is Anker's `remaining_time_hours` estimate, not a capacity calculation.
+While charging, the same device-reported estimate is shown as **Time to full**
+(for example, `1h 30m`), rather than discharge runtime. This row is hidden when
+the device is idle, discharging, or its charging state is unknown. Missing,
+invalid, or expired estimates show `--`; no capacity-based estimate is invented.
+The device's configured charge limit may affect what it considers a full charge.
 S2000 discharge is determined from its reported battery state. C1000 discharge
 requires inactive charging and fresh, complete MQTT output exceeding input.
 Missing or stale discharge/runtime fields show `--`; idle or charging devices

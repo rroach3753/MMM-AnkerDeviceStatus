@@ -33,6 +33,7 @@ class Device(TypedDict):
     charging: bool | None
     discharging: bool | None
     runtimeHours: float | None
+    chargeTimeHours: float | None
     firmwareUpdate: bool | None
     telemetry: str
 
@@ -129,9 +130,9 @@ def normalize_device(
             discharging = mqtt_output > mqtt_input
         elif charging is True:
             discharging = False
-    runtime = first_number(values, "remaining_time_hours") if discharging is True else None
-    if runtime is not None and runtime < 0:
-        runtime = None
+    remaining = first_number(values, "remaining_time_hours")
+    if remaining is not None and remaining < 0:
+        remaining = None
     return {
         "id": serial,
         "name": str(raw.get("alias") or raw.get("name") or raw.get("device_name") or serial),
@@ -147,7 +148,8 @@ def normalize_device(
         "temperature": first_number(values, "temperature"),
         "charging": charging,
         "discharging": discharging,
-        "runtimeHours": runtime,
+        "runtimeHours": remaining if discharging is True else None,
+        "chargeTimeHours": remaining if charging is True else None,
         "firmwareUpdate": (
             raw["is_ota_update"] if isinstance(raw.get("is_ota_update"), bool) else None
         ),

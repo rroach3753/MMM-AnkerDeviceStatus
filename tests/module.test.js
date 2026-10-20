@@ -222,6 +222,30 @@ test("formats runtime only during discharge and handles missing data", () => {
   assert.doesNotMatch(text(module.getDom()), /Runtime/);
 });
 
+test("shows time to full only when charging and formats valid estimates", () => {
+  const module = frontend();
+  for (const model of ["A1761", "AS220"]) {
+    module.state = { devices: [{ ...station, model, charging: true, discharging: false }] };
+    for (const [hours, expected] of [[1.5, "1h 30m"], [1.999, "2h 0m"], [0, "0h 0m"],
+      [null, "--"], [undefined, "--"], [-1, "--"], [Infinity, "--"], [NaN, "--"]]) {
+      module.state.devices[0].chargeTimeHours = hours;
+      assert.ok(text(module.getDom()).includes(`Time to full ${expected}`));
+      assert.doesNotMatch(text(module.getDom()), /Runtime/);
+    }
+    for (const charging of [false, null, undefined]) {
+      module.state.devices[0].charging = charging;
+      assert.doesNotMatch(text(module.getDom()), /Time to full/);
+    }
+  }
+  module.state.devices[0].charging = true;
+  module.config.showChargeTime = false;
+  assert.doesNotMatch(text(module.getDom()), /Time to full/);
+  module.config.showChargeTime = true;
+  module.state.devices[0].model = "A2345";
+  module.config.solixOnly = false;
+  assert.doesNotMatch(text(module.getDom()), /Time to full/);
+});
+
 test("defaults to SOLIX families regardless of names and permits opting out", () => {
   const module = frontend();
   module.state = { devices: [
@@ -307,6 +331,7 @@ test("rejects malformed device records and timestamps without losing good data",
     { devices: [null], fetchedAt: null },
     { devices: [{ ...station, telemetry: 42 }], fetchedAt: null },
     { devices: [{ ...station, battery: "50" }], fetchedAt: null },
+    { devices: [{ ...station, chargeTimeHours: "1.5" }], fetchedAt: null },
     { devices: [station], fetchedAt: "not-a-date" },
     { devices: [station], fetchedAt: null, warning: {} }
   ]) {

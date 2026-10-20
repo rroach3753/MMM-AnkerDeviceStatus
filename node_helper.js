@@ -6,7 +6,7 @@ function isDevice(device) {
   return device && typeof device === "object" && !Array.isArray(device) &&
     ["id", "name", "model", "type", "status", "telemetry"].every((key) => typeof device[key] === "string") &&
     (device.site == null || typeof device.site === "string") &&
-    ["battery", "input", "output", "solar", "temperature", "runtimeHours"].every((key) =>
+    ["battery", "input", "output", "solar", "temperature", "runtimeHours", "chargeTimeHours"].every((key) =>
       device[key] == null || (typeof device[key] === "number" && Number.isFinite(device[key]))) &&
     ["online", "charging", "discharging", "firmwareUpdate"].every((key) =>
       device[key] == null || typeof device[key] === "boolean");

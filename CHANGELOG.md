@@ -4,6 +4,19 @@ Notable changes to MMM-AnkerDeviceStatus are documented here.
 
 ## [Unreleased]
 
+## [1.2.0] - 2026-10-19
+
+### Added
+
+- Show device-reported time to full while C1000 and S2000 devices are charging.
+- Add the `showChargeTime` display option, enabled by default, and validate
+  charge-time readings at the worker boundary.
+
+### Changed
+
+- Share hours/minutes formatting between discharge runtime and time to full.
+- Document missing/stale estimates and the need for live charging verification.
+
 ## [1.1.0] - 2026-10-18
 
 ### Added

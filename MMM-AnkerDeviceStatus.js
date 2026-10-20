@@ -18,6 +18,7 @@ Module.register("MMM-AnkerDeviceStatus", {
     showTemperature: false,
     showCharging: true,
     showRuntime: true,
+    showChargeTime: true,
     showFirmware: true,
     showUpdated: true,
     compact: false
@@ -70,6 +71,16 @@ Module.register("MMM-AnkerDeviceStatus", {
     const row = this.element("div", "anker-metric");
     row.appendChild(this.element("span", "dimmed", label));
     row.appendChild(this.element("span", "bright", text));
+    parent.appendChild(row);
+  },
+
+  durationMetric(parent, label, hours) {
+    const minutes = typeof hours === "number" && Number.isFinite(hours) && hours >= 0
+      ? Math.round(hours * 60) : null;
+    const row = this.element("div", "anker-metric");
+    row.appendChild(this.element("span", "dimmed", label));
+    row.appendChild(this.element("span", "bright",
+      minutes === null ? "--" : `${Math.floor(minutes / 60)}h ${minutes % 60}m`));
     parent.appendChild(row);
   },
 
@@ -157,14 +168,11 @@ Module.register("MMM-AnkerDeviceStatus", {
       }
       if (this.config.showRuntime && ANKER_RUNTIME_MODELS.has(device.model) &&
           device.discharging !== false) {
-        const row = this.element("div", "anker-metric");
-        const hours = device.runtimeHours;
-        const minutes = typeof hours === "number" && Number.isFinite(hours) && hours >= 0
-          && device.discharging === true ? Math.round(hours * 60) : null;
-        const reading = minutes === null ? "--" : `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
-        row.appendChild(this.element("span", "dimmed", "Runtime"));
-        row.appendChild(this.element("span", "bright", reading));
-        metrics.appendChild(row);
+        this.durationMetric(metrics, "Runtime", device.discharging === true ? device.runtimeHours : null);
+      }
+      if (this.config.showChargeTime && ANKER_RUNTIME_MODELS.has(device.model) &&
+          device.charging === true) {
+        this.durationMetric(metrics, "Time to full", device.chargeTimeHours);
       }
       card.appendChild(metrics);
       card.appendChild(this.element("div", "dimmed xsmall", device.telemetry));
