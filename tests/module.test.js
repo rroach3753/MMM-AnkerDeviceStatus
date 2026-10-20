@@ -212,6 +212,8 @@ test("formats runtime only during discharge and handles missing data", () => {
   assert.match(text(module.getDom()), /Runtime 2h 0m/);
   module.state.devices[0].runtimeHours = 0;
   assert.match(text(module.getDom()), /Runtime 0h 0m/);
+  module.state.devices[0].runtimeHours = 25.5;
+  assert.match(text(module.getDom()), /Runtime 25h 30m/);
   module.state.devices[0].runtimeHours = null;
   assert.match(text(module.getDom()), /Runtime --/);
   module.state.devices[0].discharging = false;
@@ -227,6 +229,8 @@ test("shows time to full only when charging and formats valid estimates", () => 
   for (const model of ["A1761", "AS220"]) {
     module.state = { devices: [{ ...station, model, charging: true, discharging: false }] };
     for (const [hours, expected] of [[1.5, "1h 30m"], [1.999, "2h 0m"], [0, "0h 0m"],
+      [24, "24h 0m"], [24 + 1 / 60, "1d 0h 1m"], [25.5, "1d 1h 30m"],
+      [48, "2d 0h 0m"], [47.999, "2d 0h 0m"], [50.25, "2d 2h 15m"],
       [null, "--"], [undefined, "--"], [-1, "--"], [Infinity, "--"], [NaN, "--"]]) {
       module.state.devices[0].chargeTimeHours = hours;
       assert.ok(text(module.getDom()).includes(`Time to full ${expected}`));

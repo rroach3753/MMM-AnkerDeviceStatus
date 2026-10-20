@@ -280,20 +280,27 @@ Firmware status uses Anker's cloud OTA check during device-detail polling
 that are not owned by the signed-in account; those devices show a neutral
 unknown indicator rather than being assumed current.
 Individual MQTT fields expire independently: unrelated packets do not refresh
-old battery, temperature or charging readings. Charging uses the model-specific
-reported state, not a guess from wattage. Expired/disconnected MQTT readings fall back to available HTTP values, otherwise
+old battery, temperature or charging readings. S2000 charging uses its reported
+battery state. C1000's input-source status also covers AC bypass, so charging
+requires an active source and fresh, complete MQTT input exceeding output.
+Missing power evidence leaves C1000 charging unknown rather than assuming it
+is charging. Equal input/output is treated as pass-through, not battery charging.
+Expired/disconnected MQTT readings fall back to available HTTP values, otherwise
 show `--`. A partial AC/DC reading is not shown as total input/output. Zero watts
 and zero battery are preserved. During an HTTP failure the last successful
 cards remain visible with an error and their cloud-poll age.
 
 Runtime is Anker's `remaining_time_hours` estimate, not a capacity calculation.
 While charging, the same device-reported estimate is shown as **Time to full**
-(for example, `1h 30m`), rather than discharge runtime. This row is hidden when
-the device is idle, discharging, or its charging state is unknown. Missing,
+(for example, `1h 30m`), rather than discharge runtime.
+Estimates longer than 24 hours (rounded to the nearest minute) use days, hours,
+and minutes, for example `1d 1h 30m`. Exactly 24 hours remains `24h 0m`.
+This row is hidden when the device is idle, discharging, or its charging state is unknown. Missing,
 invalid, or expired estimates show `--`; no capacity-based estimate is invented.
 The device's configured charge limit may affect what it considers a full charge.
+The unsigned maximum time value (`6553.5` hours) is treated as unavailable.
 S2000 discharge is determined from its reported battery state. C1000 discharge
-requires inactive charging and fresh, complete MQTT output exceeding input.
+requires a valid input-source status and fresh, complete MQTT output exceeding input.
 Missing or stale discharge/runtime fields show `--`; idle or charging devices
 hide the runtime row. Runtime accuracy depends on the device and current load.
 

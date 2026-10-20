@@ -74,13 +74,15 @@ Module.register("MMM-AnkerDeviceStatus", {
     parent.appendChild(row);
   },
 
-  durationMetric(parent, label, hours) {
+  durationMetric(parent, label, hours, showDays = false) {
     const minutes = typeof hours === "number" && Number.isFinite(hours) && hours >= 0
       ? Math.round(hours * 60) : null;
     const row = this.element("div", "anker-metric");
+    const days = minutes !== null && showDays && minutes > 1440 ? Math.floor(minutes / 1440) : 0;
     row.appendChild(this.element("span", "dimmed", label));
     row.appendChild(this.element("span", "bright",
-      minutes === null ? "--" : `${Math.floor(minutes / 60)}h ${minutes % 60}m`));
+      minutes === null ? "--" :
+        `${days ? `${days}d ` : ""}${Math.floor(minutes / 60) - days * 24}h ${minutes % 60}m`));
     parent.appendChild(row);
   },
 
@@ -172,7 +174,7 @@ Module.register("MMM-AnkerDeviceStatus", {
       }
       if (this.config.showChargeTime && ANKER_RUNTIME_MODELS.has(device.model) &&
           device.charging === true) {
-        this.durationMetric(metrics, "Time to full", device.chargeTimeHours);
+        this.durationMetric(metrics, "Time to full", device.chargeTimeHours, true);
       }
       card.appendChild(metrics);
       card.appendChild(this.element("div", "dimmed xsmall", device.telemetry));

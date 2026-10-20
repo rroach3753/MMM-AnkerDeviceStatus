@@ -122,16 +122,18 @@ def normalize_device(
             discharging = state == 1
     elif model == "A1761":
         state = first_number(values, "charging_status")
-        if state in (0, 1, 2, 3):
-            charging = state > 0
         mqtt_input = power_total(values, "input")
         mqtt_output = power_total(values, "output")
-        if charging is False and mqtt_input is not None and mqtt_output is not None:
-            discharging = mqtt_output > mqtt_input
-        elif charging is True:
-            discharging = False
+        if state in (0, 1, 2, 3):
+            # This field identifies the input source, including AC bypass.
+            if state == 0:
+                charging = False
+            if mqtt_input is not None and mqtt_output is not None:
+                charging = state > 0 and mqtt_input > mqtt_output
+                discharging = mqtt_output > mqtt_input
     remaining = first_number(values, "remaining_time_hours")
-    if remaining is not None and remaining < 0:
+    # 0xffff scaled by 0.1 is reported when no time estimate is available.
+    if remaining is not None and not 0 <= remaining < 6553.5:
         remaining = None
     return {
         "id": serial,

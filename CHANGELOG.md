@@ -4,6 +4,16 @@ Notable changes to MMM-AnkerDeviceStatus are documented here.
 
 ## [Unreleased]
 
+### Changed
+
+- Format time-to-full estimates longer than 24 hours as days, hours, and minutes.
+
+### Fixed
+
+- Do not label C1000 AC pass-through as battery charging; require fresh net
+  charging power and retain unknown state when power readings are incomplete.
+- Reject the unavailable remaining-time value of 6553.5 hours.
+
 ## [1.2.0] - 2026-10-19
 
 ### Added

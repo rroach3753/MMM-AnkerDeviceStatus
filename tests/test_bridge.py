@@ -99,9 +99,12 @@ class NormalizationTests(unittest.TestCase):
             ("A1761", "charging_status", 1, 0),
         ):
             for remaining, expected in ((1.5, 1.5), (0, 0), (-1, None),
-                                        (None, None), ("NaN", None), ("Infinity", None)):
+                                        (None, None), ("NaN", None), ("Infinity", None),
+                                        (6553.5, None)):
                 with self.subTest(model=model, remaining=remaining):
                     values = {field: charging_state, "remaining_time_hours": remaining}
+                    if model == "A1761":
+                        values.update({"input_power_total": 500, "output_power_total": 100})
                     device = normalize_device("sn", {"device_pn": model}, {}, 0, True, 60, True, values)
                     self.assertEqual(device["chargeTimeHours"], expected)
                     self.assertIsNone(device["runtimeHours"])
@@ -115,6 +118,47 @@ class NormalizationTests(unittest.TestCase):
             ):
                 device = normalize_device("sn", {"device_pn": model}, {}, 0, True, 60, True, values)
                 self.assertIsNone(device["chargeTimeHours"])
+
+    def test_c1000_input_source_is_not_battery_charging(self):
+        for source in (1, 2, 3):
+            with self.subTest(source=source):
+                values = {"charging_status": source, "main_battery_soc": 100,
+                          "ac_input_power": 158, "dc_input_power": 0,
+                          "output_power_total": 158, "remaining_time_hours": 6553.5}
+                device = normalize_device("sn", {"device_pn": "A1761"}, {}, 0, True, 60, True, values)
+                self.assertFalse(device["charging"])
+                self.assertFalse(device["discharging"])
+                self.assertIsNone(device["chargeTimeHours"])
+                values["output_power_total"] = 50
+                values["remaining_time_hours"] = 1.5
+                device = normalize_device("sn", {"device_pn": "A1761"}, {}, 0, True, 60, True, values)
+                self.assertTrue(device["charging"])
+                self.assertEqual(device["chargeTimeHours"], 1.5)
+                values["output_power_total"] = 200
+                device = normalize_device("sn", {"device_pn": "A1761"}, {}, 0, True, 60, True, values)
+                self.assertFalse(device["charging"])
+                self.assertTrue(device["discharging"])
+                self.assertIsNone(device["chargeTimeHours"])
+
+    def test_c1000_charge_evidence_must_be_fresh_and_complete(self):
+        telemetry = Telemetry(None, None, 60)
+        telemetry.record("sn", {"ac_input_power": 500, "dc_input_power": 0,
+                                "output_power_total": 100}, 100)
+        telemetry.record("sn", {"charging_status": 2, "remaining_time_hours": 1.5}, 150)
+        raw = {"device_pn": "A1761", "input_power": 500, "output_power": 100}
+        device = normalize_device("sn", raw, {}, 20, True, 60, True, telemetry.current("sn", 170))
+        self.assertIsNone(device["charging"])
+        self.assertIsNone(device["chargeTimeHours"])
+        device = normalize_device("sn", raw, {}, 0, True, 60, True,
+                                  {"charging_status": 2, "ac_input_power": 500,
+                                   "output_power_total": 100})
+        self.assertIsNone(device["charging"])
+
+    def test_runtime_rejects_unsigned_maximum_time(self):
+        device = self.device({"device_pn": "AS220", "mqtt_data": {
+            "battery_status": 1, "remaining_time_hours": 6553.5,
+        }}, 0)
+        self.assertIsNone(device["runtimeHours"])
 
     def test_charge_time_expires_independently_of_charging_status(self):
         telemetry = Telemetry(None, None, 60)
@@ -188,7 +232,7 @@ class MonitorTests(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(device["charging"])
         for model, field, state, expected in (
             ("A1761", "charging_status", 0, False),
-            ("A1761", "charging_status", 3, True),
+            ("A1761", "charging_status", 3, None),
             ("AS220", "battery_status", 1, False),
             ("AS220", "battery_status", 2, True),
             ("AS220", "battery_status", 4, None),
