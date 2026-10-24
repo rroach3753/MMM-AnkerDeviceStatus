@@ -1,5 +1,5 @@
-anker-solix-api @ git+https://github.com/thomluther/anker-solix-api.git@3ef4ee0a6af2c1560ae5cc28173ed3aa3f2fe00e
-# The upstream wheel does not declare these runtime dependencies.
+anker-solix-api @ git+https://github.com/thomluther/anker-solix-api.git@288181055f3bad62679a46db963a3c60cc6e1635
+# Enforce locally tested runtime floors at least as strict as upstream metadata.
 aiohttp>=3.14.5
 aiofiles>=25.1.0
 cryptography>=50.0.2
