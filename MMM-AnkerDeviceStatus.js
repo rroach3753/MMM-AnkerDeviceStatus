@@ -110,7 +110,8 @@ Module.register("MMM-AnkerDeviceStatus", {
   chargerDetails(parent, device) {
     if (!this.config.showChargerDetails || !Array.isArray(device.chargerDetails)) return;
     for (const [group, title] of Object.entries(ANKER_CHARGER_GROUPS)) {
-      if (this.config.chargerGroups[group] === false) continue;
+      const visible = this.config.chargerGroups[group] ?? (group === "power");
+      if (!visible) continue;
       const fields = device.chargerDetails.filter((detail) =>
         detail.group === group && this.config.chargerFields[detail.key] !== false);
       if (!fields.length) continue;
@@ -198,8 +199,13 @@ Module.register("MMM-AnkerDeviceStatus", {
         }
       }
       if (this.config.showPower) {
-        this.metric(metrics, "Input", device.input, " W");
-        this.metric(metrics, "Output", device.output, " W");
+        const charger = ANKER_CHARGER_MODELS.has(device.model);
+        if (!charger || (typeof device.input === "number" && Number.isFinite(device.input))) {
+          this.metric(metrics, "Input", device.input, " W");
+        }
+        if (!charger || (typeof device.output === "number" && Number.isFinite(device.output))) {
+          this.metric(metrics, "Output", device.output, " W");
+        }
         if (device.solar !== null) this.metric(metrics, "Solar", device.solar, " W");
       }
       if (this.config.showTemperature) {

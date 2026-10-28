@@ -226,8 +226,8 @@ Restart MagicMirror after changing credentials or polling settings.
 
 ### Charger and station details
 
-Supported Anker charger/station cards and all available detail groups are shown
-by default. This includes A2345, A91B2, A1903, A2687 and A25X7 model families,
+Supported Anker charger/station cards show per-port power (watts) by default;
+other detail groups are opt-in. This includes A2345, A91B2, A1903, A2687 and A25X7 model families,
 but model recognition is not proof of available telemetry. The installed client
 must decode the fields before they can appear. A2345 and A91B2 have detailed
 MQTT mappings; other models may show only basic metadata and
@@ -240,6 +240,8 @@ An inactive port's reported zero watts is retained. Port readings are not
 presented as whole-device input/output, and AC outlet state is not AC wattage.
 Existing `showPower` controls whole-device metrics; the charger-specific power
 group below controls individual USB port readings independently.
+Unavailable whole-device Input/Output rows are hidden on charger/station cards.
+SOLIX metrics and configuration behavior are unchanged.
 
 | Group key | Details when reported |
 | --- | --- |
@@ -258,20 +260,21 @@ group below controls individual USB port readings independently.
 | `clock` | Clock format, clock/weekend enablement and display schedule |
 | `software` | Device-reported software version |
 
-Use `chargerGroups` to hide entire categories and `chargerFields` to hide
-individual readings. Both are maps of names to booleans; omitted entries
-default to visible. A hidden group always takes precedence over its fields.
-For example:
+Use `chargerGroups` to enable or hide entire categories and `chargerFields` to
+hide individual readings. Both are maps of names to booleans. Only the `power`
+group is visible when unspecified; all other groups require explicit `true`.
+Individual fields default to visible within an enabled group. A hidden group
+always takes precedence over its fields. For example, to opt into voltage,
+current and charging mode alongside watts:
 
 ```js
 config: {
   showChargers: true,
   showChargerDetails: true,
   chargerGroups: {
-    display: false,
-    clock: false,
-    schedules: false,
-    allocation: false
+    voltage: true,
+    current: true,
+    mode: true
   },
   chargerFields: {
     usbc_1_voltage: false,
@@ -321,8 +324,8 @@ On Windows, use `.venv\Scripts\python.exe` for the Python command.
 | `showCloudOnly` | `true` | Set to `false` to hide Cloud only cards; waiting/stale MQTT cards remain visible |
 | `solixOnly` | `true` | Restrict non-charger cards to SOLIX families (including AS200); set `false` to also include power banks and unknown families |
 | `showChargers` | `true` | Include supported Anker charger/station cards independently of `solixOnly` |
-| `showChargerDetails` | `true` | Show all available read-only charger/station detail groups |
-| `chargerGroups` | `{}` | Set a detail group to `false` to hide it; unspecified groups are shown |
+| `showChargerDetails` | `true` | Show enabled read-only charger/station detail groups; defaults to per-port watts only |
+| `chargerGroups` | `{}` | Only `power` defaults to visible; set other groups to `true` to opt in, or any group to `false` to hide it |
 | `chargerFields` | `{}` | Set an individual decoded field name to `false` to hide it; unspecified fields are shown |
 | `deviceIds` | `[]` | Serial-number allowlist; empty shows all account devices |
 | `deviceNames` | `{}` | Name overrides keyed by device serial number |

@@ -283,14 +283,16 @@ const chargerDetails = [
   { key: "usage_mode", label: "Charging mode", group: "mode", value: "<b>Custom</b>", unit: "" }
 ];
 
-test("charger groups and fields show by default and can each be hidden", () => {
+test("charger details default to watts with other groups opt-in and field overrides", () => {
   const module = frontend();
   module.state = { devices: [{ ...station, model: "A2345", type: "charger", chargerDetails }] };
   assert.match(text(module.getDom()), /USB-C 1 Power 0 W/);
+  assert.doesNotMatch(text(module.getDom()), /USB-C 1 Voltage|USB-C 1 Current|Custom/);
+  module.config.chargerGroups = { voltage: true, current: true, mode: true };
   assert.match(text(module.getDom()), /USB-C 1 Voltage 20.125 V/);
   assert.match(text(module.getDom()), /USB-C 1 Current 2.345 A/);
   assert.match(text(module.getDom()), /<b>Custom<\/b>/);
-  module.config.chargerGroups = { voltage: false };
+  module.config.chargerGroups = { voltage: false, current: true };
   module.config.chargerFields = { usbc_1_power: false };
   assert.doesNotMatch(text(module.getDom()), /Port power|Port voltage|USB-C 1 Power|USB-C 1 Voltage/);
   assert.match(text(module.getDom()), /USB-C 1 Current/);
@@ -299,6 +301,29 @@ test("charger groups and fields show by default and can each be hidden", () => {
   module.config.showChargerDetails = true;
   module.state.devices[0].chargerDetails = [];
   assert.match(text(module.getDom()), /Charger details unavailable/);
+});
+
+test("charger power rows omit missing totals while SOLIX metrics stay unchanged", () => {
+  const module = frontend();
+  const charger = { ...station, model: "A91B2", type: "charger", battery: null,
+    input: null, output: null, chargerDetails };
+  module.state = { devices: [charger] };
+  assert.doesNotMatch(text(module.getDom()), /Input|Output/);
+  assert.match(text(module.getDom()), /USB-C 1 Power 0 W/);
+  charger.input = 0;
+  charger.output = 25;
+  assert.match(text(module.getDom()), /Input 0 W/);
+  assert.match(text(module.getDom()), /Output 25 W/);
+  module.state = { devices: [{ ...station, input: null, output: null, solar: 0,
+    temperature: 25, charging: true, chargeTimeHours: 1.5 }] };
+  module.config.showTemperature = true;
+  const solix = text(module.getDom());
+  assert.match(solix, /Input --/);
+  assert.match(solix, /Output --/);
+  assert.match(solix, /Solar 0 W/);
+  assert.match(solix, /Battery 0%/);
+  assert.match(solix, /Temperature 25 C/);
+  assert.match(solix, /Time to full 1h 30m/);
 });
 
 test("worker boundary accepts charger details and rejects malformed nested readings", () => {

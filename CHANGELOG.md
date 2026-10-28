@@ -4,6 +4,13 @@ Notable changes to MMM-AnkerDeviceStatus are documented here.
 
 ## [Unreleased]
 
+### Changed
+
+- Show only per-port power by default on charger/station cards; other detail
+  groups remain opt-in through `chargerGroups`.
+- Hide unavailable whole-device Input/Output rows on charger/station cards,
+  without changing SOLIX metrics or behavior.
+
 ## [1.3.0] - 2026-10-27
 
 ### Added
