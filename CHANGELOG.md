@@ -8,6 +8,8 @@ Notable changes to MMM-AnkerDeviceStatus are documented here.
 
 ### Changed
 
+- Make `solixOnly: true` exclude supported charger/station cards regardless of
+  `showChargers`. Showing chargers now requires `solixOnly: false`.
 - Omit temperature from charger/station cards even when `showTemperature` is
   enabled; SOLIX temperature display is unchanged.
 - Default to three device cards per row in `*_center` positions and two

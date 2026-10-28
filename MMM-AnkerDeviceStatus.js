@@ -164,7 +164,7 @@ Module.register("MMM-AnkerDeviceStatus", {
     if (this.state.error) wrapper.appendChild(this.element("div", "anker-error small", this.state.error));
     if (this.state.warning) wrapper.appendChild(this.element("div", "anker-warning small", this.state.warning));
     const devices = this.state.devices.filter((device) =>
-      (ANKER_CHARGER_MODELS.has(device.model) ? this.config.showChargers :
+      (ANKER_CHARGER_MODELS.has(device.model) ? !this.config.solixOnly && this.config.showChargers :
         (!this.config.solixOnly || ANKER_SOLIX_TYPES.has(device.type) || device.model === "AS200")) &&
       (this.config.showOffline || device.online !== false) &&
       (this.config.showCloudOnly || !device.telemetry.startsWith("Cloud only")) &&

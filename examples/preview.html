@@ -20,7 +20,7 @@
   <script>
     const Module = {
       register(name, definition) {
-        definition.config = { ...definition.defaults, showUpdated: false };
+        definition.config = { ...definition.defaults, solixOnly: false, showUpdated: false };
         definition.state = {
           devices: [
             {

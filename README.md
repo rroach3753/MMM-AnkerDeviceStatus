@@ -31,11 +31,10 @@ low-battery highlighting, and explicit unavailable/stale-data messages.
 Open [examples/preview.html](examples/preview.html) in a browser for a sample
 layout without credentials. All values in that preview are fictional.
 
-The display defaults to **SOLIX devices plus supported Anker chargers and
-stations**. Set `showChargers: false` to restore the previous SOLIX-only view.
-Power banks and unclassified devices remain hidden by `solixOnly: true`,
-regardless of their custom names. Set `solixOnly: false` to include those
-additional device families; `showChargers` still controls supported charger cards.
+The display defaults to **SOLIX devices only**. `solixOnly: true` excludes
+chargers, power banks and unclassified devices regardless of `showChargers` or
+custom names. Set `solixOnly: false` to include additional device families;
+`showChargers` then controls supported Anker charger/station cards.
 
 Device cards use three equal-width columns by default in `*_center` positions
 and two columns elsewhere, with as many rows as needed. Set `cardsPerRow` to any
@@ -277,6 +276,7 @@ current and charging mode alongside watts:
 
 ```js
 config: {
+  solixOnly: false,
   showChargers: true,
   showChargerDetails: true,
   chargerGroups: {
@@ -305,6 +305,7 @@ limits. Only fields present in the installed decoder's data are shown.
 
 Set `showChargerDetails: false` to retain basic charger cards without details,
 or `showChargers: false` to hide supported charger/station cards entirely.
+Charger cards require `solixOnly: false`; `solixOnly: true` always excludes them.
 
 ## Updating
 
@@ -330,8 +331,8 @@ On Windows, use `.venv\Scripts\python.exe` for the Python command.
 | `title` | `"Anker Power"` | Heading; empty string hides it |
 | `showOffline` | `true` | Include explicitly offline devices; unknown devices are retained |
 | `showCloudOnly` | `true` | Set to `false` to hide Cloud only cards; waiting/stale MQTT cards remain visible |
-| `solixOnly` | `true` | Restrict non-charger cards to SOLIX families (including AS200); set `false` to also include power banks and unknown families |
-| `showChargers` | `true` | Include supported Anker charger/station cards independently of `solixOnly` |
+| `solixOnly` | `true` | Restrict cards to SOLIX families (including AS200), excluding chargers regardless of `showChargers`; set `false` to allow other device families |
+| `showChargers` | `true` | Include supported Anker charger/station cards only when `solixOnly` is `false` |
 | `showChargerDetails` | `true` | Show enabled read-only charger/station detail groups; defaults to per-port watts only |
 | `showInactiveChargerPorts` | `false` | Also show USB ports with zero or unavailable power; otherwise require fresh power greater than zero |
 | `chargerGroups` | `{}` | Only `power` defaults to visible; set other groups to `true` to opt in, or any group to `false` to hide it |

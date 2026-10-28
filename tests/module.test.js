@@ -195,6 +195,7 @@ test("shows temperature and explicit charging state including unavailable", () =
 
 test("omits temperature on all supported charger models without changing SOLIX cards", () => {
   const module = frontend();
+  module.config.solixOnly = false;
   module.config.showTemperature = true;
   for (const model of ["A1903", "A2345", "A25X7", "A2687", "A91B2"]) {
     for (const temperature of [null, 25]) {
@@ -297,7 +298,7 @@ test("shows time to full only when charging and formats valid estimates", () => 
   assert.doesNotMatch(text(module.getDom()), /Time to full/);
 });
 
-test("includes supported chargers by default with a separate visibility toggle", () => {
+test("solixOnly overrides showChargers while other device filters remain effective", () => {
   const module = frontend();
   module.state = { devices: [
     { ...station, name: "Rack Power", type: "pps" },
@@ -308,14 +309,25 @@ test("includes supported chargers by default with a separate visibility toggle",
     { ...station, model: "AS200", type: "charger" }
   ] };
   const cards = () => module.getDom().children.filter((child) => child.className === "anker-card");
-  assert.equal(cards().length, 5);
-  assert.match(text(module.getDom()), /SOLIX fake name/);
-  module.config.showChargers = false;
-  assert.equal(cards().length, 3);
-  assert.doesNotMatch(text(module.getDom()), /SOLIX fake name/);
+  for (const [solixOnly, showChargers, expected] of [
+    [true, true, 3],
+    [true, false, 3],
+    [false, true, 6],
+    [false, false, 4]
+  ]) {
+    module.config.solixOnly = solixOnly;
+    module.config.showChargers = showChargers;
+    assert.equal(cards().length, expected);
+    if (!solixOnly && showChargers) {
+      assert.match(text(module.getDom()), /SOLIX fake name/);
+    } else {
+      assert.doesNotMatch(text(module.getDom()), /SOLIX fake name/);
+    }
+  }
+  module.config.solixOnly = true;
   module.config.showChargers = true;
-  module.config.solixOnly = false;
-  assert.equal(cards().length, 6);
+  module.state.devices[2].type = "pps";
+  assert.equal(cards().length, 3);
   module.config.solixOnly = true;
   module.config.showChargers = false;
   module.config.showCloudOnly = false;
@@ -332,6 +344,7 @@ const chargerDetails = [
 
 test("charger details default to watts with other groups opt-in and field overrides", () => {
   const module = frontend();
+  module.config.solixOnly = false;
   module.config.showInactiveChargerPorts = true;
   module.state = { devices: [{ ...station, model: "A2345", type: "charger", chargerDetails }] };
   assert.match(text(module.getDom()), /USB-C 1 Power 0 W/);
@@ -353,6 +366,7 @@ test("charger details default to watts with other groups opt-in and field overri
 
 test("charger power rows omit missing totals while SOLIX metrics stay unchanged", () => {
   const module = frontend();
+  module.config.solixOnly = false;
   module.config.showInactiveChargerPorts = true;
   const charger = { ...station, model: "A91B2", type: "charger", battery: null,
     input: null, output: null, chargerDetails };
@@ -377,6 +391,7 @@ test("charger power rows omit missing totals while SOLIX metrics stay unchanged"
 
 test("only ports with positive measured power show by default, including optional port groups", () => {
   const module = frontend();
+  module.config.solixOnly = false;
   const details = [
     ...chargerDetails,
     { key: "usbc_2_power", label: "USB-C 2 Power", group: "power", value: 0.001, unit: " W" },
