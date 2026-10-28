@@ -1,5 +1,7 @@
 # Changelog
 
+<!-- markdownlint-configure-file { "MD024": { "siblings_only": true } } -->
+
 Notable changes to MMM-AnkerDeviceStatus are documented here.
 
 ## [Unreleased]
