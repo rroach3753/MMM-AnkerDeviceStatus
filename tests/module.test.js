@@ -87,6 +87,33 @@ test("shows loading, zero battery and watts, and missing values", () => {
   assert.equal(module.getDom().children[1].children[0].children[0].children.length, 0);
 });
 
+test("defaults to three cards in center positions and two elsewhere", () => {
+  const module = frontend();
+  for (const [position, expected] of [
+    ["center_above", 3],
+    ["center_below", 3],
+    ["top_left", 2],
+    ["bottom_bar", 2],
+    [undefined, 2]
+  ]) {
+    module.data = { position };
+    assert.equal(module.getDom().style.gridTemplateColumns, `repeat(${expected}, minmax(0, 1fr))`);
+  }
+});
+
+test("cardsPerRow overrides automatic placement defaults for any positive integer", () => {
+  const module = frontend();
+  module.data = { position: "center_above" };
+  for (const columns of [1, 2, 4, 17]) {
+    module.config.cardsPerRow = columns;
+    assert.equal(module.getDom().style.gridTemplateColumns, `repeat(${columns}, minmax(0, 1fr))`);
+  }
+  for (const invalid of [0, -1, 2.5, "4", Infinity, NaN]) {
+    module.config.cardsPerRow = invalid;
+    assert.equal(module.getDom().style.gridTemplateColumns, "repeat(3, minmax(0, 1fr))");
+  }
+});
+
 test("places cloud poll age beside the title, not below cards", () => {
   const module = frontend();
   module.state = { devices: [station], fetchedAt: new Date(Date.now() - 120000).toISOString() };

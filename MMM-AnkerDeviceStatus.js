@@ -43,7 +43,8 @@ Module.register("MMM-AnkerDeviceStatus", {
     showChargeTime: true,
     showFirmware: true,
     showUpdated: true,
-    compact: false
+    compact: false,
+    cardsPerRow: null
   },
 
   start() {
@@ -138,8 +139,16 @@ Module.register("MMM-AnkerDeviceStatus", {
     }
   },
 
+  getCardsPerRow() {
+    if (Number.isSafeInteger(this.config.cardsPerRow) && this.config.cardsPerRow > 0) {
+      return this.config.cardsPerRow;
+    }
+    return typeof this.data?.position === "string" && this.data.position.startsWith("center_") ? 3 : 2;
+  },
+
   getDom() {
     const wrapper = this.element("div", `anker-status${this.config.compact ? " anker-compact" : ""}`);
+    wrapper.style.gridTemplateColumns = `repeat(${this.getCardsPerRow()}, minmax(0, 1fr))`;
     const title = this.element("div", "anker-title");
     if (this.config.title) title.appendChild(this.element("span", "bright", this.config.title));
     if (this.config.showUpdated && this.state && this.state.fetchedAt) {

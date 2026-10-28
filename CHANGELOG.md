@@ -8,6 +8,11 @@ Notable changes to MMM-AnkerDeviceStatus are documented here.
 
 ### Changed
 
+- Default to three device cards per row in `center_*` positions and two
+  elsewhere; add `cardsPerRow` to override the layout.
+
+### Changed
+
 - Hide charger USB ports without positive measured output power by default;
   set `showInactiveChargerPorts: true` to include them. SOLIX is unchanged.
 - Show only per-port power by default on charger/station cards; other detail
