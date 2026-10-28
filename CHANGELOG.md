@@ -4,8 +4,21 @@ Notable changes to MMM-AnkerDeviceStatus are documented here.
 
 ## [Unreleased]
 
+## [1.3.0] - 2026-10-27
+
+### Added
+
+- Show supported Anker charger/station cards and available per-port telemetry,
+  schedules, timers, priorities, charging modes, allocation, display/clock
+  settings, software version and decoded AC outlet states by default.
+- Add `showChargers`, `showChargerDetails`, `chargerGroups` and `chargerFields`
+  display controls. Charger details remain read-only and use field-level MQTT
+  freshness; unavailable readings are not fabricated.
+
 ### Changed
 
+- Include supported charger/station cards by default; set `showChargers: false`
+  to restore the previous SOLIX-only view.
 - Format time-to-full estimates longer than 24 hours as days, hours, and minutes.
 
 ### Fixed
@@ -13,6 +26,7 @@ Notable changes to MMM-AnkerDeviceStatus are documented here.
 - Do not label C1000 AC pass-through as battery charging; require fresh net
   charging power and retain unknown state when power readings are incomplete.
 - Reject the unavailable remaining-time value of 6553.5 hours.
+- Use npm script commands in CI so checks also run on Node.js 20.
 
 ## [1.2.0] - 2026-10-19
 

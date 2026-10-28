@@ -250,7 +250,7 @@ test("shows time to full only when charging and formats valid estimates", () => 
   assert.doesNotMatch(text(module.getDom()), /Time to full/);
 });
 
-test("defaults to SOLIX families regardless of names and permits opting out", () => {
+test("includes supported chargers by default with a separate visibility toggle", () => {
   const module = frontend();
   module.state = { devices: [
     { ...station, name: "Rack Power", type: "pps" },
@@ -261,14 +261,65 @@ test("defaults to SOLIX families regardless of names and permits opting out", ()
     { ...station, model: "AS200", type: "charger" }
   ] };
   const cards = () => module.getDom().children.filter((child) => child.className === "anker-card");
+  assert.equal(cards().length, 5);
+  assert.match(text(module.getDom()), /SOLIX fake name/);
+  module.config.showChargers = false;
   assert.equal(cards().length, 3);
   assert.doesNotMatch(text(module.getDom()), /SOLIX fake name/);
+  module.config.showChargers = true;
   module.config.solixOnly = false;
   assert.equal(cards().length, 6);
   module.config.solixOnly = true;
+  module.config.showChargers = false;
   module.config.showCloudOnly = false;
   module.state.devices[0].telemetry = "Cloud only";
   assert.equal(cards().length, 2);
+});
+
+const chargerDetails = [
+  { key: "usbc_1_power", label: "USB-C 1 Power", group: "power", value: 0, unit: " W" },
+  { key: "usbc_1_voltage", label: "USB-C 1 Voltage", group: "voltage", value: 20.125, unit: " V" },
+  { key: "usbc_1_current", label: "USB-C 1 Current", group: "current", value: 2.345, unit: " A" },
+  { key: "usage_mode", label: "Charging mode", group: "mode", value: "<b>Custom</b>", unit: "" }
+];
+
+test("charger groups and fields show by default and can each be hidden", () => {
+  const module = frontend();
+  module.state = { devices: [{ ...station, model: "A2345", type: "charger", chargerDetails }] };
+  assert.match(text(module.getDom()), /USB-C 1 Power 0 W/);
+  assert.match(text(module.getDom()), /USB-C 1 Voltage 20.125 V/);
+  assert.match(text(module.getDom()), /USB-C 1 Current 2.345 A/);
+  assert.match(text(module.getDom()), /<b>Custom<\/b>/);
+  module.config.chargerGroups = { voltage: false };
+  module.config.chargerFields = { usbc_1_power: false };
+  assert.doesNotMatch(text(module.getDom()), /Port power|Port voltage|USB-C 1 Power|USB-C 1 Voltage/);
+  assert.match(text(module.getDom()), /USB-C 1 Current/);
+  module.config.showChargerDetails = false;
+  assert.doesNotMatch(text(module.getDom()), /USB-C 1|Custom/);
+  module.config.showChargerDetails = true;
+  module.state.devices[0].chargerDetails = [];
+  assert.match(text(module.getDom()), /Charger details unavailable/);
+});
+
+test("worker boundary accepts charger details and rejects malformed nested readings", () => {
+  for (const invalid of [
+    null, {}, [{ ...chargerDetails[0], value: {} }], [{ ...chargerDetails[0], group: "secrets" }],
+    [{ ...chargerDetails[0], value: -1 }], [{ ...chargerDetails[0], key: "bad key" }],
+    Array(257).fill(chargerDetails[0])
+  ]) {
+    const { helper, worker, messages } = backend();
+    helper.socketNotificationReceived("ANKER_SUBSCRIBE", { instanceId: "one" });
+    worker().stdout.emit("data", JSON.stringify({
+      devices: [{ ...station, chargerDetails }], fetchedAt: null
+    }) + "\n");
+    assert.equal(messages.at(-1)[1].devices[0].chargerDetails.length, 4);
+    worker().stdout.emit("data", JSON.stringify({
+      devices: [{ ...station, chargerDetails: invalid }], fetchedAt: null
+    }) + "\n");
+    assert.match(messages.at(-1)[1].error, /invalid data/);
+    assert.equal(messages.at(-1)[1].devices[0].chargerDetails.length, 4);
+    helper.stop();
+  }
 });
 
 test("shares one worker, parses fragmented responses, and targets subscribers", () => {

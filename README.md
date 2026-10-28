@@ -1,6 +1,6 @@
 # MMM-AnkerDeviceStatus
 
-**Release: `1.2.0`.**
+**Release: `1.3.0`.**
 
 Automated tests and the live mirror layout have been verified.
 Live authentication/discovery and battery, temperature, and charging-state
@@ -9,6 +9,12 @@ Other readings, devices, firmware combinations, and long-term reliability
 remain unverified. Remaining runtime is covered by automated tests but has not
 yet been verified during live battery discharge. Device support below reflects
 the upstream client's capabilities, not completed end-to-end testing of every model.
+
+On October 27, 2026, temporary live testing retrieved 105 detail fields from
+an A2345 charger and 54 fields each from three A91B2 stations. Default rendering,
+group toggles and individual-field toggles passed against those live readings.
+AC outlet state was not reported during that test and remains unverified on
+hardware. The original mirror installation was restored after testing.
 
 Report test results and problems through
 [GitHub issues](https://github.com/rroach3753/MMM-AnkerDeviceStatus/issues).
@@ -25,9 +31,11 @@ low-battery highlighting, and explicit unavailable/stale-data messages.
 Open [examples/preview.html](examples/preview.html) in a browser for a sample
 layout without credentials. All values in that preview are fictional.
 
-The display defaults to **SOLIX devices only**. Prime chargers, charging bases,
-power banks and unclassified devices are hidden, regardless of their custom
-names. Set `solixOnly: false` to include the wider Anker device list.
+The display defaults to **SOLIX devices plus supported Anker chargers and
+stations**. Set `showChargers: false` to restore the previous SOLIX-only view.
+Power banks and unclassified devices remain hidden by `solixOnly: true`,
+regardless of their custom names. Set `solixOnly: false` to include those
+additional device families; `showChargers` still controls supported charger cards.
 
 Device cards use two equal-width columns and as many rows as needed. The heading,
 warnings, and cloud-poll timestamp span both columns. The module is 660px wide,
@@ -216,6 +224,77 @@ launch environment, not in `config.js`.
 
 Restart MagicMirror after changing credentials or polling settings.
 
+### Charger and station details
+
+Supported Anker charger/station cards and all available detail groups are shown
+by default. This includes A2345, A91B2, A1903, A2687 and A25X7 model families,
+but model recognition is not proof of available telemetry. The installed client
+must decode the fields before they can appear. A2345 and A91B2 have detailed
+MQTT mappings; other models may show only basic metadata and
+**Charger details unavailable**.
+
+All details are read-only. No port switches, charging modes, schedules or
+display settings are changed. Only fresh, individually reported MQTT fields
+are included; missing/stale fields are omitted rather than replaced with zero.
+An inactive port's reported zero watts is retained. Port readings are not
+presented as whole-device input/output, and AC outlet state is not AC wattage.
+Existing `showPower` controls whole-device metrics; the charger-specific power
+group below controls individual USB port readings independently.
+
+| Group key | Details when reported |
+| --- | --- |
+| `power` | Individual USB-port watts |
+| `voltage` | Individual USB-port volts |
+| `current` | Individual USB-port amps |
+| `activity` | USB-port active/inactive state |
+| `switches` | USB-port switch settings |
+| `schedules` | Port start/end enablement, hours, minutes and weekdays |
+| `timers` | Port timer enablement, duration and remaining seconds |
+| `priority` | Port priority |
+| `mode` | Charging/usage mode |
+| `allocation` | Custom profile, auto-exit, port power limits and protocol settings |
+| `acOutlets` | Explicitly decoded AC outlet switch states |
+| `display` | Brightness, timeout, theme and knob settings |
+| `clock` | Clock format, clock/weekend enablement and display schedule |
+| `software` | Device-reported software version |
+
+Use `chargerGroups` to hide entire categories and `chargerFields` to hide
+individual readings. Both are maps of names to booleans; omitted entries
+default to visible. A hidden group always takes precedence over its fields.
+For example:
+
+```js
+config: {
+  showChargers: true,
+  showChargerDetails: true,
+  chargerGroups: {
+    display: false,
+    clock: false,
+    schedules: false,
+    allocation: false
+  },
+  chargerFields: {
+    usbc_1_voltage: false,
+    usbc_1_current: false,
+    usba_2_power: false
+  }
+}
+```
+
+Port measurement prefixes are `usbc_1` through `usbc_4`, and `usba_1`/`usba_2`.
+The shared USB-A settings prefix is `usba`.
+Suffixes include `power`, `voltage`, `current`, `status`, `switch`, `priority`,
+`timer_switch`, `timer_seconds`, `timer_remaining_seconds`, and
+`start_switch`/`start_hour`/`start_minute`/`start_weekdays` (also `end_*`).
+Other field keys correspond to the decoded names, such as `usage_mode`,
+`display_brightness`, `clock_mode`, `sw_version`, `ac_1_switch`, `ac_2_switch`,
+`custom_usb_c1_power_limit` and `custom_usb_c1_protocols`.
+Custom allocation ports are `c1` through `c4` plus shared USB-A `a` for power
+limits. Only fields present in the installed decoder's data are shown.
+
+Set `showChargerDetails: false` to retain basic charger cards without details,
+or `showChargers: false` to hide supported charger/station cards entirely.
+
 ## Updating
 
 From the module directory, fetch the latest version and refresh the Python
@@ -240,7 +319,11 @@ On Windows, use `.venv\Scripts\python.exe` for the Python command.
 | `title` | `"Anker Power"` | Heading; empty string hides it |
 | `showOffline` | `true` | Include explicitly offline devices; unknown devices are retained |
 | `showCloudOnly` | `true` | Set to `false` to hide Cloud only cards; waiting/stale MQTT cards remain visible |
-| `solixOnly` | `true` | Show SOLIX power stations, energy systems and associated device families (including AS200 alternator charger); hide Prime chargers, power banks and unknown families |
+| `solixOnly` | `true` | Restrict non-charger cards to SOLIX families (including AS200); set `false` to also include power banks and unknown families |
+| `showChargers` | `true` | Include supported Anker charger/station cards independently of `solixOnly` |
+| `showChargerDetails` | `true` | Show all available read-only charger/station detail groups |
+| `chargerGroups` | `{}` | Set a detail group to `false` to hide it; unspecified groups are shown |
+| `chargerFields` | `{}` | Set an individual decoded field name to `false` to hide it; unspecified fields are shown |
 | `deviceIds` | `[]` | Serial-number allowlist; empty shows all account devices |
 | `deviceNames` | `{}` | Name overrides keyed by device serial number |
 | `showBattery` | `true` | Battery reading/bar for battery-equipped devices |

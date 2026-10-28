@@ -4,6 +4,23 @@ const ANKER_SOLIX_TYPES = new Set([
   "ev_charger", "powercooler", "generator"
 ]);
 const ANKER_RUNTIME_MODELS = new Set(["A1761", "AS220"]);
+const ANKER_CHARGER_MODELS = new Set(["A1903", "A2345", "A25X7", "A2687", "A91B2"]);
+const ANKER_CHARGER_GROUPS = {
+  power: "Port power",
+  voltage: "Port voltage",
+  current: "Port current",
+  activity: "Port activity",
+  switches: "Port switches",
+  schedules: "Port schedules",
+  timers: "Port timers",
+  priority: "Port priority",
+  mode: "Charging mode",
+  allocation: "Custom allocation",
+  acOutlets: "AC outlets",
+  display: "Display settings",
+  clock: "Clock settings",
+  software: "Software"
+};
 
 Module.register("MMM-AnkerDeviceStatus", {
   defaults: {
@@ -11,6 +28,10 @@ Module.register("MMM-AnkerDeviceStatus", {
     showOffline: true,
     showCloudOnly: true,
     solixOnly: true,
+    showChargers: true,
+    showChargerDetails: true,
+    chargerGroups: {},
+    chargerFields: {},
     deviceIds: [],
     deviceNames: {},
     showBattery: true,
@@ -86,6 +107,27 @@ Module.register("MMM-AnkerDeviceStatus", {
     parent.appendChild(row);
   },
 
+  chargerDetails(parent, device) {
+    if (!this.config.showChargerDetails || !Array.isArray(device.chargerDetails)) return;
+    for (const [group, title] of Object.entries(ANKER_CHARGER_GROUPS)) {
+      if (this.config.chargerGroups[group] === false) continue;
+      const fields = device.chargerDetails.filter((detail) =>
+        detail.group === group && this.config.chargerFields[detail.key] !== false);
+      if (!fields.length) continue;
+      const section = this.element("div", "anker-charger-group");
+      section.appendChild(this.element("div", "anker-charger-heading dimmed", title));
+      for (const detail of fields) {
+        const row = this.element("div", "anker-metric anker-charger-metric");
+        const reading = typeof detail.value === "number"
+          ? String(Math.round(detail.value * 1000) / 1000) : detail.value;
+        row.appendChild(this.element("span", "dimmed", detail.label));
+        row.appendChild(this.element("span", "bright", `${reading}${detail.unit}`));
+        section.appendChild(row);
+      }
+      parent.appendChild(section);
+    }
+  },
+
   getDom() {
     const wrapper = this.element("div", `anker-status${this.config.compact ? " anker-compact" : ""}`);
     const title = this.element("div", "anker-title");
@@ -103,7 +145,8 @@ Module.register("MMM-AnkerDeviceStatus", {
     if (this.state.error) wrapper.appendChild(this.element("div", "anker-error small", this.state.error));
     if (this.state.warning) wrapper.appendChild(this.element("div", "anker-warning small", this.state.warning));
     const devices = this.state.devices.filter((device) =>
-      (!this.config.solixOnly || ANKER_SOLIX_TYPES.has(device.type) || device.model === "AS200") &&
+      (ANKER_CHARGER_MODELS.has(device.model) ? this.config.showChargers :
+        (!this.config.solixOnly || ANKER_SOLIX_TYPES.has(device.type) || device.model === "AS200")) &&
       (this.config.showOffline || device.online !== false) &&
       (this.config.showCloudOnly || !device.telemetry.startsWith("Cloud only")) &&
       (!this.config.deviceIds.length || this.config.deviceIds.includes(device.id))
@@ -175,6 +218,12 @@ Module.register("MMM-AnkerDeviceStatus", {
       if (this.config.showChargeTime && ANKER_RUNTIME_MODELS.has(device.model) &&
           device.charging === true) {
         this.durationMetric(metrics, "Time to full", device.chargeTimeHours, true);
+      }
+      if (ANKER_CHARGER_MODELS.has(device.model)) {
+        this.chargerDetails(metrics, device);
+        if (this.config.showChargerDetails && !device.chargerDetails?.length) {
+          metrics.appendChild(this.element("div", "dimmed xsmall", "Charger details unavailable"));
+        }
       }
       card.appendChild(metrics);
       card.appendChild(this.element("div", "dimmed xsmall", device.telemetry));

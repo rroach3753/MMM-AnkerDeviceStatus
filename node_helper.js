@@ -2,6 +2,17 @@ const NodeHelper = require("node_helper");
 const { spawn } = require("node:child_process");
 const path = require("node:path");
 
+function isChargerDetail(detail) {
+  return detail && typeof detail === "object" && !Array.isArray(detail) &&
+    ["key", "label", "group", "unit"].every((key) =>
+      typeof detail[key] === "string" && detail[key].length <= 128) &&
+    /^[a-z0-9_]+$/.test(detail.key) &&
+    ["power", "voltage", "current", "activity", "switches", "priority", "timers",
+      "schedules", "acOutlets", "mode", "allocation", "display", "clock", "software"].includes(detail.group) &&
+    ((typeof detail.value === "number" && Number.isFinite(detail.value) && detail.value >= 0) ||
+      (typeof detail.value === "string" && detail.value.length <= 256));
+}
+
 function isDevice(device) {
   return device && typeof device === "object" && !Array.isArray(device) &&
     ["id", "name", "model", "type", "status", "telemetry"].every((key) => typeof device[key] === "string") &&
@@ -9,7 +20,10 @@ function isDevice(device) {
     ["battery", "input", "output", "solar", "temperature", "runtimeHours", "chargeTimeHours"].every((key) =>
       device[key] == null || (typeof device[key] === "number" && Number.isFinite(device[key]))) &&
     ["online", "charging", "discharging", "firmwareUpdate"].every((key) =>
-      device[key] == null || typeof device[key] === "boolean");
+      device[key] == null || typeof device[key] === "boolean") &&
+    (device.chargerDetails === undefined ||
+      (Array.isArray(device.chargerDetails) && device.chargerDetails.length <= 256 &&
+        device.chargerDetails.every(isChargerDetail)));
 }
 
 module.exports = NodeHelper.create({

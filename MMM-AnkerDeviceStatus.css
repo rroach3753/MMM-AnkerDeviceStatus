@@ -142,3 +142,18 @@
 .anker-status.anker-compact .anker-name {
   font-size: 17px;
 }
+
+.anker-status .anker-charger-group {
+  margin-top: 10px;
+}
+
+.anker-status .anker-charger-heading {
+  font-size: 0.85em;
+  margin-bottom: 4px;
+}
+
+.anker-status .anker-charger-metric .bright {
+  white-space: normal;
+  text-align: right;
+  min-width: 0;
+}

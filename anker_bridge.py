@@ -17,6 +17,14 @@ if TYPE_CHECKING:
     from anker_solix_api.mqtt import AnkerSolixMqttSession
 
 
+class ChargerDetail(TypedDict):
+    key: str
+    label: str
+    group: str
+    value: str | float
+    unit: str
+
+
 class Device(TypedDict):
     id: str
     name: str
@@ -36,6 +44,132 @@ class Device(TypedDict):
     chargeTimeHours: float | None
     firmwareUpdate: bool | None
     telemetry: str
+    chargerDetails: list[ChargerDetail]
+
+
+CHARGER_MODELS = {"A1903", "A2345", "A25X7", "A2687", "A91B2"}
+
+
+def charger_reported_values(model: str, values: dict) -> dict:
+    """Translate port events without refreshing unrelated cached readings."""
+    reported = dict(values)
+    if model not in CHARGER_MODELS:
+        return reported
+    ports = (["ac_1", "ac_2", "usbc_1", "usbc_2", "usbc_3", "usbc_4"]
+             if model == "A91B2" else ["usbc_1", "usbc_2", "usbc_3", "usbc_4", "usba"])
+    for selector, value_key, suffix in [
+        ("set_port_switch_select", "set_port_switch", "switch"),
+        ("set_port_timer_select", "set_port_timer_switch", "timer_switch"),
+        ("set_ac_port_switch_select", "set_ac_port_switch", "switch"),
+    ]:
+        port_id = number(values.get(selector))
+        event_ports = ["ac_1", "ac_2"] if selector == "set_ac_port_switch_select" else ports
+        if port_id is None or not port_id.is_integer() or not 0 <= port_id < len(event_ports):
+            continue
+        port = event_ports[int(port_id)]
+        if value_key in values:
+            reported[f"{port}_{suffix}"] = values[value_key]
+        if selector == "set_port_timer_select":
+            for key in ("port_timer_seconds", "port_timer_remaining_seconds"):
+                if key in values:
+                    reported[f"{port}_{key.removeprefix('port_')}"] = values[key]
+    return reported
+
+
+def charger_details(model: str, values: dict) -> list[ChargerDetail]:
+    """Expose only known decoded fields, never arbitrary MQTT payload data."""
+    if model not in CHARGER_MODELS:
+        return []
+    details: list[ChargerDetail] = []
+
+    def add(key: str, label: str, group: str, unit: str = "", choices: dict | None = None) -> None:
+        raw = values.get(key)
+        if raw is None:
+            return
+        if key.endswith("_protocols"):
+            protocols = ["scp", "ufcs", "pd12v", "pps11v", "pps16v", "pps20v", "huawei", "xiaomi"]
+            if isinstance(raw, (bytes, bytearray)) and len(raw) == 1:
+                value = ", ".join(name for bit, name in enumerate(protocols) if raw[0] & (1 << bit)) or "None"
+            elif isinstance(raw, list) and all(isinstance(item, str) and item in protocols for item in raw):
+                value = ", ".join(raw) or "None"
+            else:
+                return
+        elif key == "sw_version":
+            if not isinstance(raw, (str, int, float)) or isinstance(raw, bool):
+                return
+            if not isinstance(raw, str) and (not math.isfinite(raw) or raw < 0):
+                return
+            value = str(raw)[:128]
+        else:
+            value = number(raw)
+            if value is None or value < 0:
+                return
+            if key.endswith("_weekdays"):
+                if not value.is_integer() or value > 127:
+                    return
+                value = ", ".join(
+                    day for bit, day in enumerate(["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"])
+                    if int(value) & (1 << bit)
+                ) or "None"
+            if choices is not None:
+                value = choices.get(value, f"Unknown ({value:g})")
+        details.append({"key": key, "label": label, "group": group, "value": value, "unit": unit})
+
+    ports = ["usbc_1", "usbc_2", "usbc_3", "usbc_4", "usba_1", "usba_2", "usba"]
+    switches = {0: "Off", 1: "On"}
+    for port in ports:
+        label = "USB-A (shared)" if port == "usba" else port.replace("usbc_", "USB-C ").replace("usba_", "USB-A ")
+        for suffix, title, group, unit, choices in [
+            ("power", "Power", "power", " W", None),
+            ("voltage", "Voltage", "voltage", " V", None),
+            ("current", "Current", "current", " A", None),
+            ("status", "Activity", "activity", "", {0: "Inactive", 1: "Active"}),
+            ("switch", "Switch", "switches", "", switches),
+            ("priority", "Priority", "priority", "", {1: "Normal", 2: "Prioritized"}),
+            ("timer_switch", "Timer", "timers", "", switches),
+            ("timer_seconds", "Timer duration", "timers", " s", None),
+            ("timer_remaining_seconds", "Timer remaining", "timers", " s", None),
+        ]:
+            add(f"{port}_{suffix}", f"{label} {title}", group, unit, choices)
+        for boundary in ("start", "end"):
+            for suffix, unit, choices in [
+                ("switch", "", switches), ("hour", " h", None),
+                ("minute", " min", None), ("weekdays", "", None),
+            ]:
+                add(f"{port}_{boundary}_{suffix}", f"{label} {boundary} {suffix}", "schedules", unit, choices)
+    for port in ("ac_1", "ac_2"):
+        add(f"{port}_switch", port.replace("ac_", "AC outlet ") + " switch", "acOutlets", choices=switches)
+    for key, label, group, choices, unit in [
+        ("usage_mode", "Charging mode", "mode", {
+            1: "AI Power", 2: "Connection priority", 3: "Dual laptop", 4: "Low power", 5: "Custom"
+        }, ""),
+        ("custom_profile_number", "Custom profile", "allocation", None, ""),
+        ("auto_exit_switch", "Auto-exit custom mode", "allocation", switches, ""),
+        ("display_brightness", "Display brightness", "display", None, "%"),
+        ("display_timeout_mode", "Display timeout", "display", {
+            0: "Never", 1: "30 seconds", 2: "1 minute", 3: "5 minutes", 4: "30 minutes"
+        }, ""),
+        ("theme_id", "Theme ID", "display", None, ""),
+        ("theme_type", "Theme type", "display", None, ""),
+        ("custom_theme_active", "Custom theme", "display", switches, ""),
+        ("stock_theme_active", "Stock theme", "display", switches, ""),
+        ("knob_mode", "Knob direction", "display", {0: "Forward", 1: "Backward"}, ""),
+        ("clock_mode", "Clock format", "clock", {0: "12-hour", 1: "24-hour"}, ""),
+        ("clock_switch", "Clock", "clock", switches, ""),
+        ("holiday_switch", "Weekend mode", "clock", switches, ""),
+        ("clock_display_start_hour", "Clock start hour", "clock", None, " h"),
+        ("clock_display_start_minute", "Clock start minute", "clock", None, " min"),
+        ("clock_display_end_hour", "Clock end hour", "clock", None, " h"),
+        ("clock_display_end_minute", "Clock end minute", "clock", None, " min"),
+        ("clock_display_weekdays", "Clock weekdays", "clock", None, ""),
+        ("sw_version", "Software version", "software", None, ""),
+    ]:
+        add(key, label, group, unit, choices)
+    for port in ("c1", "c2", "c3", "c4", "a"):
+        add(f"custom_usb_{port}_power_limit", f"Custom USB {port} power limit", "allocation", " W")
+        if port != "a":
+            add(f"custom_usb_{port}_protocols", f"Custom USB {port} protocols", "allocation")
+    return details
 
 
 def number(value: object) -> float | None:
@@ -160,6 +294,7 @@ def normalize_device(
             "MQTT" if fresh else "MQTT stale" if mqtt_age is not None else
             "Waiting for MQTT" if raw.get("mqtt_supported") else "Cloud only"
         ),
+        "chargerDetails": charger_details(str(model or ""), values),
     }
 
 
@@ -182,7 +317,9 @@ class Telemetry:
     def receive(self, session, topic, message, data, model, deviceSn, extracted_values, *args, **kwargs) -> None:
         try:
             self.client.mqtt_received(session, topic, message, data, model, deviceSn, extracted_values, *args, **kwargs)
-            self.loop.call_soon_threadsafe(self.record, deviceSn, dict(extracted_values), time.monotonic())
+            self.loop.call_soon_threadsafe(
+                self.record, deviceSn, charger_reported_values(model, extracted_values), time.monotonic()
+            )
         except Exception as error:
             self.loop.call_soon_threadsafe(
                 setattr, self, "callback_error", f"MQTT decoding failed ({type(error).__name__})."

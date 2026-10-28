@@ -35,8 +35,15 @@
             },
             {
               id: "demo-charger", name: "Desk Charger", model: "A2345", type: "charger",
-              site: "", online: false, status: "unknown", battery: null, input: null,
-              output: null, solar: null, temperature: null, telemetry: "Cloud only"
+              site: "", online: true, status: "unknown", battery: null, input: null,
+              output: null, solar: null, temperature: null, telemetry: "MQTT",
+              chargerDetails: [
+                { key: "usbc_1_power", label: "USB-C 1 Power", group: "power", value: 45.5, unit: " W" },
+                { key: "usbc_1_voltage", label: "USB-C 1 Voltage", group: "voltage", value: 20, unit: " V" },
+                { key: "usbc_1_current", label: "USB-C 1 Current", group: "current", value: 2.275, unit: " A" },
+                { key: "usage_mode", label: "Charging mode", group: "mode", value: "AI Power", unit: "" },
+                { key: "sw_version", label: "Software version", group: "software", value: "1.0.0 (sample)", unit: "" }
+              ]
             }
           ],
           error: null

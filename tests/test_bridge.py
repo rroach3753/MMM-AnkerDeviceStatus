@@ -6,10 +6,87 @@ import os
 import unittest
 from unittest.mock import AsyncMock, patch
 
-from anker_bridge import Telemetry, interval, monitor, normalize_device, number, power_total, subscribe_devices
+from anker_bridge import Telemetry, charger_details, charger_reported_values, interval, monitor, normalize_device, number, power_total, subscribe_devices
 
 
 class NormalizationTests(unittest.TestCase):
+    def test_charger_details_preserve_port_precision_and_zero(self):
+        fields = charger_details("A2345", {
+            "usbc_1_power": 0, "usbc_1_voltage": 20.125, "usbc_1_current": 2.45,
+            "usbc_1_status": 0, "usbc_1_switch": 1, "usbc_1_priority": 2,
+            "usba_2_power": "4.25", "account_token": "private",
+        })
+        by_key = {field["key"]: field for field in fields}
+        self.assertEqual(by_key["usbc_1_power"]["value"], 0)
+        self.assertEqual(by_key["usbc_1_voltage"]["value"], 20.125)
+        self.assertEqual(by_key["usbc_1_current"]["value"], 2.45)
+        self.assertEqual(by_key["usbc_1_status"]["value"], "Inactive")
+        self.assertEqual(by_key["usbc_1_switch"]["value"], "On")
+        self.assertEqual(by_key["usbc_1_priority"]["value"], "Prioritized")
+        self.assertNotIn("account_token", by_key)
+
+    def test_all_charger_groups_are_allowlisted_and_serializable(self):
+        values = {
+            "usbc_1_power": 40, "usbc_1_voltage": 20, "usbc_1_current": 2,
+            "usbc_1_status": 1, "usbc_1_switch": 0, "usbc_1_priority": 1,
+            "usbc_1_start_hour": 8, "usbc_1_start_weekdays": 62,
+            "usbc_1_timer_remaining_seconds": 0, "ac_1_switch": 0,
+            "usage_mode": 5, "custom_usb_c1_power_limit": 100,
+            "custom_usb_c1_protocols": bytes([3]), "display_brightness": 20,
+            "clock_mode": 1, "sw_version": "1.2.3",
+        }
+        fields = charger_details("A91B2", values)
+        self.assertEqual({field["group"] for field in fields}, {
+            "power", "voltage", "current", "activity", "switches", "priority",
+            "schedules", "timers", "acOutlets", "mode", "allocation", "display", "clock", "software",
+        })
+        encoded = json.loads(json.dumps(fields))
+        by_key = {field["key"]: field["value"] for field in encoded}
+        self.assertEqual(by_key["custom_usb_c1_protocols"], "scp, ufcs")
+        self.assertEqual(by_key["ac_1_switch"], "Off")
+        self.assertEqual(by_key["usage_mode"], "Custom")
+        self.assertEqual(charger_details("A2345", {"custom_usb_c1_protocols": ["pps16v"]})[0]["value"], "pps16v")
+        self.assertEqual(by_key["usbc_1_start_weekdays"], "Tue, Wed, Thu, Fri, Sat")
+        self.assertEqual(charger_details("A2345", {"usba_switch": 0})[0]["value"], "Off")
+
+    def test_switch_and_timer_events_retain_correct_port_identity(self):
+        for model, selector, expected in [
+            ("A2345", 0, "usbc_1_switch"),
+            ("A2345", 4, "usba_switch"),
+            ("A91B2", 0, "ac_1_switch"),
+            ("A91B2", 1, "ac_2_switch"),
+            ("A91B2", 2, "usbc_1_switch"),
+        ]:
+            source = {"set_port_switch_select": selector, "set_port_switch": 0}
+            values = charger_reported_values(model, source)
+            self.assertEqual(values[expected], 0)
+            self.assertNotIn(expected, source)
+            self.assertEqual(charger_details(model, values)[0]["key"], expected)
+        values = charger_reported_values("A2345", {
+            "set_port_timer_select": 4, "set_port_timer_switch": 1,
+            "port_timer_remaining_seconds": 0,
+        })
+        self.assertEqual(values["usba_timer_switch"], 1)
+        self.assertEqual(values["usba_timer_remaining_seconds"], 0)
+        self.assertNotIn("usba_timer_seconds", values)
+        self.assertNotIn("ac_1_switch", charger_reported_values("A91B2", {
+            "set_port_switch_select": "bad", "set_port_switch": 0,
+        }))
+
+    def test_charger_details_require_fresh_fields_not_merged_cache(self):
+        telemetry = Telemetry(None, None, 60)
+        telemetry.record("sn", {"usbc_1_power": 50, "display_brightness": 80}, 100)
+        telemetry.record("sn", {"usbc_1_power": 0}, 150)
+        raw = {"device_pn": "A2345", "mqtt_data": {"display_brightness": 80}}
+        device = normalize_device("sn", raw, {}, 20, True, 60, True, telemetry.current("sn", 170))
+        self.assertEqual([field["key"] for field in device["chargerDetails"]], ["usbc_1_power"])
+        self.assertEqual(device["chargerDetails"][0]["value"], 0)
+        for age, connected in ((61, True), (0, False)):
+            self.assertEqual(normalize_device("sn", raw, {}, age, connected, 60)["chargerDetails"], [])
+        self.assertEqual(charger_details("A1761", {"usbc_1_power": 1}), [])
+        for value in (True, [], {}, "bad", -1, float("nan"), float("inf")):
+            self.assertEqual(charger_details("A2345", {"usbc_1_power": value}), [])
+
     def device(self, raw: dict, age: float | None = None, connected: bool = True):
         return normalize_device("serial", raw, {}, age, connected, 600)
 
