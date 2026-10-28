@@ -8,7 +8,7 @@ Notable changes to MMM-AnkerDeviceStatus are documented here.
 
 ### Changed
 
-- Default to three device cards per row in `center_*` positions and two
+- Default to three device cards per row in `*_center` positions and two
   elsewhere; add `cardsPerRow` to override the layout.
 
 ### Changed

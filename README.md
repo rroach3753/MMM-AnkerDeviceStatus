@@ -37,7 +37,7 @@ Power banks and unclassified devices remain hidden by `solixOnly: true`,
 regardless of their custom names. Set `solixOnly: false` to include those
 additional device families; `showChargers` still controls supported charger cards.
 
-Device cards use three equal-width columns by default in `center_*` positions
+Device cards use three equal-width columns by default in `*_center` positions
 and two columns elsewhere, with as many rows as needed. Set `cardsPerRow` to any
 positive integer to override the placement default. The heading, warnings, and
 cloud-poll timestamp span the card columns. The module is 660px wide, limited by
@@ -347,7 +347,7 @@ On Windows, use `.venv\Scripts\python.exe` for the Python command.
 | `showFirmware` | `true` | Firmware status beside the device name: blinking green when current, blinking red when an update is available; neutral when unknown |
 | `showUpdated` | `true` | Age of the last successful HTTP cloud poll beside the module title |
 | `compact` | `false` | Smaller cards |
-| `cardsPerRow` | Automatic | Positive integer column count; defaults to `3` for `center_*` positions and `2` elsewhere |
+| `cardsPerRow` | Automatic | Positive integer column count; defaults to `3` for `*_center` positions and `2` elsewhere |
 
 Example: `deviceNames: { "YOUR_DEVICE_SERIAL": "Office backup" }`.
 Find serial numbers in the Anker app/device label. Names are rendered as text,

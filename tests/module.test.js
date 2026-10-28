@@ -90,8 +90,9 @@ test("shows loading, zero battery and watts, and missing values", () => {
 test("defaults to three cards in center positions and two elsewhere", () => {
   const module = frontend();
   for (const [position, expected] of [
-    ["center_above", 3],
-    ["center_below", 3],
+    ["top_center", 3],
+    ["bottom_center", 3],
+    ["center_above", 2],
     ["top_left", 2],
     ["bottom_bar", 2],
     [undefined, 2]
@@ -103,7 +104,7 @@ test("defaults to three cards in center positions and two elsewhere", () => {
 
 test("cardsPerRow overrides automatic placement defaults for any positive integer", () => {
   const module = frontend();
-  module.data = { position: "center_above" };
+  module.data = { position: "top_center" };
   for (const columns of [1, 2, 4, 17]) {
     module.config.cardsPerRow = columns;
     assert.equal(module.getDom().style.gridTemplateColumns, `repeat(${columns}, minmax(0, 1fr))`);

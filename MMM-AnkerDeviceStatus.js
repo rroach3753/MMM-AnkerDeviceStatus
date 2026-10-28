@@ -143,7 +143,7 @@ Module.register("MMM-AnkerDeviceStatus", {
     if (Number.isSafeInteger(this.config.cardsPerRow) && this.config.cardsPerRow > 0) {
       return this.config.cardsPerRow;
     }
-    return typeof this.data?.position === "string" && this.data.position.startsWith("center_") ? 3 : 2;
+    return typeof this.data?.position === "string" && this.data.position.endsWith("_center") ? 3 : 2;
   },
 
   getDom() {
