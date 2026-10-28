@@ -226,7 +226,7 @@ Module.register("MMM-AnkerDeviceStatus", {
         }
         if (device.solar !== null) this.metric(metrics, "Solar", device.solar, " W");
       }
-      if (this.config.showTemperature) {
+      if (this.config.showTemperature && !ANKER_CHARGER_MODELS.has(device.model)) {
         const row = this.element("div", "anker-metric");
         const temperature = device.temperature;
         const reading = typeof temperature === "number" && Number.isFinite(temperature)

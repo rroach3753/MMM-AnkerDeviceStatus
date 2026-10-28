@@ -8,6 +8,8 @@ Notable changes to MMM-AnkerDeviceStatus are documented here.
 
 ### Changed
 
+- Omit temperature from charger/station cards even when `showTemperature` is
+  enabled; SOLIX temperature display is unchanged.
 - Default to three device cards per row in `*_center` positions and two
   elsewhere; add `cardsPerRow` to override the layout.
 

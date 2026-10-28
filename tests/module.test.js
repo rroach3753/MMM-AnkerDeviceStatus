@@ -193,6 +193,25 @@ test("shows temperature and explicit charging state including unavailable", () =
   assert.match(text(module.getDom()), /Temperature --/);
 });
 
+test("omits temperature on all supported charger models without changing SOLIX cards", () => {
+  const module = frontend();
+  module.config.showTemperature = true;
+  for (const model of ["A1903", "A2345", "A25X7", "A2687", "A91B2"]) {
+    for (const temperature of [null, 25]) {
+      module.state = { devices: [
+        { ...station, model, type: "charger", temperature },
+        { ...station, temperature }
+      ] };
+      const cards = module.getDom().children.filter((child) => child.className === "anker-card");
+      assert.equal(cards.length, 2);
+      assert.doesNotMatch(text(cards[0]), /Temperature/);
+      assert.match(text(cards[1]), temperature === null ? /Temperature --/ : /Temperature 25 C \/ 77 F/);
+    }
+  }
+  module.config.showTemperature = false;
+  assert.doesNotMatch(text(module.getDom()), /Temperature/);
+});
+
 test("groups name, connection and charging in the header without a model number", () => {
   const module = frontend();
   module.state = { devices: [{ ...station, name: "Office", charging: false }] };

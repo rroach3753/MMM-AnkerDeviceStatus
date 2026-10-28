@@ -340,7 +340,7 @@ On Windows, use `.venv\Scripts\python.exe` for the Python command.
 | `deviceNames` | `{}` | Name overrides keyed by device serial number |
 | `showBattery` | `true` | Battery reading/bar for battery-equipped devices |
 | `showPower` | `true` | Input/output and available solar watts |
-| `showTemperature` | `false` | Temperature in Celsius and Fahrenheit when provided by MQTT |
+| `showTemperature` | `false` | Temperature in Celsius and Fahrenheit when provided by MQTT; omitted on charger/station cards |
 | `showCharging` | `true` | Charging/not-charging state for C1000 (A1761) and S2000 (AS220); unknown is explicit |
 | `showRuntime` | `true` | Device-reported remaining hours/minutes while discharging; hidden when idle/charging, `--` if unknown |
 | `showChargeTime` | `true` | Time to full for charging C1000 (A1761) and S2000 (AS220) devices; `--` if the estimate is unavailable |
