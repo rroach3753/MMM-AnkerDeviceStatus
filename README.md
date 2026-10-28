@@ -236,7 +236,13 @@ MQTT mappings; other models may show only basic metadata and
 All details are read-only. No port switches, charging modes, schedules or
 display settings are changed. Only fresh, individually reported MQTT fields
 are included; missing/stale fields are omitted rather than replaced with zero.
-An inactive port's reported zero watts is retained. Port readings are not
+An inactive port's reported zero watts is retained in telemetry but hidden by
+default. Only USB ports with fresh measured power greater than zero are shown,
+including their opt-in port detail groups. Missing power is not evidence of
+activity. Set `showInactiveChargerPorts: true` to also show zero-power ports
+and ports without a power reading. Shared USB-A settings appear when either
+USB-A port reports positive watts. This filter does not affect SOLIX devices
+or device-wide charger settings. Port readings are not
 presented as whole-device input/output, and AC outlet state is not AC wattage.
 Existing `showPower` controls whole-device metrics; the charger-specific power
 group below controls individual USB port readings independently.
@@ -325,6 +331,7 @@ On Windows, use `.venv\Scripts\python.exe` for the Python command.
 | `solixOnly` | `true` | Restrict non-charger cards to SOLIX families (including AS200); set `false` to also include power banks and unknown families |
 | `showChargers` | `true` | Include supported Anker charger/station cards independently of `solixOnly` |
 | `showChargerDetails` | `true` | Show enabled read-only charger/station detail groups; defaults to per-port watts only |
+| `showInactiveChargerPorts` | `false` | Also show USB ports with zero or unavailable power; otherwise require fresh power greater than zero |
 | `chargerGroups` | `{}` | Only `power` defaults to visible; set other groups to `true` to opt in, or any group to `false` to hide it |
 | `chargerFields` | `{}` | Set an individual decoded field name to `false` to hide it; unspecified fields are shown |
 | `deviceIds` | `[]` | Serial-number allowlist; empty shows all account devices |

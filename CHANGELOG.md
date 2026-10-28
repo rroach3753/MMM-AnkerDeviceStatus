@@ -6,6 +6,8 @@ Notable changes to MMM-AnkerDeviceStatus are documented here.
 
 ### Changed
 
+- Hide charger USB ports without positive measured output power by default;
+  set `showInactiveChargerPorts: true` to include them. SOLIX is unchanged.
 - Show only per-port power by default on charger/station cards; other detail
   groups remain opt-in through `chargerGroups`.
 - Hide unavailable whole-device Input/Output rows on charger/station cards,

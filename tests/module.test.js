@@ -285,6 +285,7 @@ const chargerDetails = [
 
 test("charger details default to watts with other groups opt-in and field overrides", () => {
   const module = frontend();
+  module.config.showInactiveChargerPorts = true;
   module.state = { devices: [{ ...station, model: "A2345", type: "charger", chargerDetails }] };
   assert.match(text(module.getDom()), /USB-C 1 Power 0 W/);
   assert.doesNotMatch(text(module.getDom()), /USB-C 1 Voltage|USB-C 1 Current|Custom/);
@@ -305,6 +306,7 @@ test("charger details default to watts with other groups opt-in and field overri
 
 test("charger power rows omit missing totals while SOLIX metrics stay unchanged", () => {
   const module = frontend();
+  module.config.showInactiveChargerPorts = true;
   const charger = { ...station, model: "A91B2", type: "charger", battery: null,
     input: null, output: null, chargerDetails };
   module.state = { devices: [charger] };
@@ -324,6 +326,38 @@ test("charger power rows omit missing totals while SOLIX metrics stay unchanged"
   assert.match(solix, /Battery 0%/);
   assert.match(solix, /Temperature 25 C/);
   assert.match(solix, /Time to full 1h 30m/);
+});
+
+test("only ports with positive measured power show by default, including optional port groups", () => {
+  const module = frontend();
+  const details = [
+    ...chargerDetails,
+    { key: "usbc_2_power", label: "USB-C 2 Power", group: "power", value: 0.001, unit: " W" },
+    { key: "usbc_2_voltage", label: "USB-C 2 Voltage", group: "voltage", value: 5, unit: " V" },
+    { key: "usbc_3_voltage", label: "USB-C 3 Voltage", group: "voltage", value: 20, unit: " V" },
+    { key: "usba_1_power", label: "USB-A 1 Power", group: "power", value: 1, unit: " W" },
+    { key: "usba_switch", label: "USB-A shared switch", group: "switches", value: "On", unit: "" }
+  ];
+  module.state = { devices: [{ ...station, model: "A2345", type: "charger", chargerDetails: details }] };
+  module.config.chargerGroups = { voltage: true, switches: true };
+  let rendered = text(module.getDom());
+  assert.doesNotMatch(rendered, /USB-C 1|USB-C 3/);
+  assert.match(rendered, /USB-C 2 Power 0.001 W/);
+  assert.match(rendered, /USB-C 2 Voltage 5 V/);
+  assert.match(rendered, /USB-A shared switch On/);
+  module.config.chargerFields = { usbc_2_power: false };
+  assert.match(text(module.getDom()), /USB-C 2 Voltage/);
+  module.config.showInactiveChargerPorts = true;
+  assert.match(text(module.getDom()), /USB-C 1 Power 0 W/);
+  assert.match(text(module.getDom()), /USB-C 3 Voltage/);
+  module.config.showInactiveChargerPorts = false;
+  for (const value of [0, -1, null, undefined, "1", NaN, Infinity]) {
+    module.state.devices[0].chargerDetails = [
+      { ...chargerDetails[0], value }, chargerDetails[1]
+    ];
+    rendered = text(module.getDom());
+    assert.doesNotMatch(rendered, /USB-C 1|Port power|Port voltage/);
+  }
 });
 
 test("worker boundary accepts charger details and rejects malformed nested readings", () => {

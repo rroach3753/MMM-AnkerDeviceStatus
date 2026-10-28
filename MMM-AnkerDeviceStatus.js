@@ -30,6 +30,7 @@ Module.register("MMM-AnkerDeviceStatus", {
     solixOnly: true,
     showChargers: true,
     showChargerDetails: true,
+    showInactiveChargerPorts: false,
     chargerGroups: {},
     chargerFields: {},
     deviceIds: [],
@@ -109,11 +110,19 @@ Module.register("MMM-AnkerDeviceStatus", {
 
   chargerDetails(parent, device) {
     if (!this.config.showChargerDetails || !Array.isArray(device.chargerDetails)) return;
+    const activePorts = new Set(device.chargerDetails
+      .filter((detail) => detail.group === "power" && typeof detail.value === "number" &&
+        Number.isFinite(detail.value) && detail.value > 0)
+      .map((detail) => detail.key.replace(/_power$/, "")));
+    if (activePorts.has("usba_1") || activePorts.has("usba_2")) activePorts.add("usba");
     for (const [group, title] of Object.entries(ANKER_CHARGER_GROUPS)) {
       const visible = this.config.chargerGroups[group] ?? (group === "power");
       if (!visible) continue;
-      const fields = device.chargerDetails.filter((detail) =>
-        detail.group === group && this.config.chargerFields[detail.key] !== false);
+      const fields = device.chargerDetails.filter((detail) => {
+        if (detail.group !== group || this.config.chargerFields[detail.key] === false) return false;
+        const port = detail.key.match(/^(usbc_[1-4]|usba_[12]|usba)_/);
+        return this.config.showInactiveChargerPorts || !port || activePorts.has(port[1]);
+      });
       if (!fields.length) continue;
       const section = this.element("div", "anker-charger-group");
       section.appendChild(this.element("div", "anker-charger-heading dimmed", title));
