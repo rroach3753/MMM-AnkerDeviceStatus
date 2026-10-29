@@ -71,7 +71,7 @@ An account listing does not prove a device is online.
 
 ## Requirements
 
-- MagicMirror² with Node.js 20.12 or newer (`node --run` is used for project scripts).
+- MagicMirror² with Node.js 20.12 or newer.
 - Python 3.12 or newer (upstream currently supports 3.12–3.14), pip and Git.
 - Internet access to Anker's HTTPS API and MQTT service.
 - An Anker email/password account and its correct two-letter country code.
@@ -315,9 +315,9 @@ dependencies:
 ```sh
 git pull --ff-only
 .venv/bin/python -m pip install -r requirements.txt
-node --run check
-node --run test
-node --run lint
+npm run check
+npm test
+npm run lint
 ```
 
 Create the `.venv` first if it does not exist. Keep your `.env` file; updating
@@ -433,9 +433,9 @@ Running ESLint 10 requires Node.js 20.19 or newer; the module itself supports
 Node.js 20.12 and newer.
 
 ```sh
-node --run check
-node --run test
-node --run lint
+npm run check
+npm test
+npm run lint
 .venv/bin/python -m unittest discover -s tests -p 'test_*.py'
 ```
 
