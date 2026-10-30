@@ -315,9 +315,9 @@ dependencies:
 ```sh
 git pull --ff-only
 .venv/bin/python -m pip install -r requirements.txt
-npm run check
-npm test
-npm run lint
+node --check MMM-AnkerDeviceStatus.js && node --check node_helper.js
+node --test tests/*.test.js
+npx --no-install eslint MMM-AnkerDeviceStatus.js node_helper.js tests/*.test.js
 ```
 
 Create the `.venv` first if it does not exist. Keep your `.env` file; updating
@@ -430,12 +430,13 @@ validated and limited to 32 retained subscriptions per helper run.
 JavaScript tests use Node's built-in test runner. ESLint is a development
 dependency; Python runtime dependencies are declared in `requirements.txt`.
 Running ESLint 10 requires Node.js 20.19 or newer; the module itself supports
-Node.js 20.12 and newer.
+Node.js 20.12 and newer. The commands below invoke tools directly so they also
+work on Node.js 20; `node --run` requires Node.js 22 or newer.
 
 ```sh
-npm run check
-npm test
-npm run lint
+node --check MMM-AnkerDeviceStatus.js && node --check node_helper.js
+node --test tests/*.test.js
+npx --no-install eslint MMM-AnkerDeviceStatus.js node_helper.js tests/*.test.js
 .venv/bin/python -m unittest discover -s tests -p 'test_*.py'
 ```
 
@@ -443,8 +444,8 @@ Tests cover normalization, missing/zero/stale values, polling/MQTT setup,
 rendering, filtering, instance isolation, shared workers and failure recovery.
 Real account/device compatibility must be checked with your own account.
 
-CI runs JavaScript checks on Node.js 20, 22, and 24, and bridge tests on
-Python 3.12, 3.13, and 3.14. Worker messages are validated before publication;
+Checks are run locally; this repository has no automated CI workflow.
+Worker messages are validated before publication;
 invalid device records or timestamps retain the last good readings and report
 an error. Stopping the display clears its rendering timer without changing
 server-owned account polling.

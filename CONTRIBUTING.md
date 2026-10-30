@@ -9,7 +9,7 @@ For code changes:
 1. Keep changes focused and update relevant documentation.
 2. Install Python dependencies from `requirements.txt` in a virtual
    environment.
-3. Run `npm run check`, `npm test`, `npm run lint`, and
+3. Run the syntax, test, and lint commands in the [README](./README.md), and
    `.venv/bin/python -m unittest discover -s tests -p 'test_*.py'`.
 4. Describe which devices and runtime versions you actually tested. Do not
    claim live-device behavior from mocked or automated tests alone.
