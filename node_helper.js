@@ -31,6 +31,7 @@ module.exports = NodeHelper.create({
     this.clients = new Set();
     this.worker = null;
     this.latest = null;
+    this.latestSignature = null;
     this.retryTimer = null;
     this.watchdog = null;
   },
@@ -56,6 +57,9 @@ module.exports = NodeHelper.create({
   },
 
   publish(state) {
+    const signature = JSON.stringify(state);
+    if (signature === this.latestSignature) return;
+    this.latestSignature = signature;
     this.latest = state;
     for (const id of this.clients) this.sendState(id);
   },

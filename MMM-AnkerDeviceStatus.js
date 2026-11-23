@@ -51,7 +51,7 @@ Module.register("MMM-AnkerDeviceStatus", {
     this.state = null;
     this.suspended = false;
     this.sendSocketNotification("ANKER_SUBSCRIBE", { instanceId: this.identifier });
-    this.ageTimer = setInterval(() => this.updateDom(0), 30000);
+    this.ageTimer = setInterval(() => this.updateAgeText(), 60000);
   },
 
   suspend() {
@@ -67,7 +67,7 @@ Module.register("MMM-AnkerDeviceStatus", {
     this.suspended = false;
     this.sendSocketNotification("ANKER_SUBSCRIBE", { instanceId: this.identifier });
     clearInterval(this.ageTimer);
-    this.ageTimer = setInterval(() => this.updateDom(0), 30000);
+    this.ageTimer = setInterval(() => this.updateAgeText(), 60000);
   },
 
   socketNotificationReceived(notification, payload) {
@@ -111,16 +111,23 @@ Module.register("MMM-AnkerDeviceStatus", {
 
   chargerDetails(parent, device) {
     if (!this.config.showChargerDetails || !Array.isArray(device.chargerDetails)) return;
-    const activePorts = new Set(device.chargerDetails
-      .filter((detail) => detail.group === "power" && typeof detail.value === "number" &&
-        Number.isFinite(detail.value) && detail.value > 0)
-      .map((detail) => detail.key.replace(/_power$/, "")));
+    const activePorts = new Set();
+    const detailsByGroup = new Map();
+    for (const detail of device.chargerDetails) {
+      if (detail.group === "power" && typeof detail.value === "number" &&
+          Number.isFinite(detail.value) && detail.value > 0) {
+        activePorts.add(detail.key.replace(/_power$/, ""));
+      }
+      const fields = detailsByGroup.get(detail.group);
+      if (fields) fields.push(detail);
+      else detailsByGroup.set(detail.group, [detail]);
+    }
     if (activePorts.has("usba_1") || activePorts.has("usba_2")) activePorts.add("usba");
     for (const [group, title] of Object.entries(ANKER_CHARGER_GROUPS)) {
       const visible = this.config.chargerGroups[group] ?? (group === "power");
       if (!visible) continue;
-      const fields = device.chargerDetails.filter((detail) => {
-        if (detail.group !== group || this.config.chargerFields[detail.key] === false) return false;
+      const fields = (detailsByGroup.get(group) || []).filter((detail) => {
+        if (this.config.chargerFields[detail.key] === false) return false;
         const port = detail.key.match(/^(usbc_[1-4]|usba_[12]|usba)_/);
         return this.config.showInactiveChargerPorts || !port || activePorts.has(port[1]);
       });
@@ -146,15 +153,23 @@ Module.register("MMM-AnkerDeviceStatus", {
     return typeof this.data?.position === "string" && this.data.position.endsWith("_center") ? 3 : 2;
   },
 
+  updateAgeText() {
+    if (!this.updatedElement || !this.state?.fetchedAt) return;
+    const elapsed = Math.max(0, Math.floor((Date.now() - Date.parse(this.state.fetchedAt)) / 60000));
+    this.updatedElement.textContent =
+      `${this.state.error ? "Last successful cloud poll" : "Cloud polled"} ${elapsed < 1 ? "just now" : `${elapsed} min ago`}`;
+  },
+
   getDom() {
     const wrapper = this.element("div", `anker-status${this.config.compact ? " anker-compact" : ""}`);
     wrapper.style.gridTemplateColumns = `repeat(${this.getCardsPerRow()}, minmax(0, 1fr))`;
     const title = this.element("div", "anker-title");
     if (this.config.title) title.appendChild(this.element("span", "bright", this.config.title));
+    this.updatedElement = null;
     if (this.config.showUpdated && this.state && this.state.fetchedAt) {
-      const elapsed = Math.max(0, Math.floor((Date.now() - Date.parse(this.state.fetchedAt)) / 60000));
-      title.appendChild(this.element("span", "dimmed xsmall anker-updated",
-        `${this.state.error ? "Last successful cloud poll" : "Cloud polled"} ${elapsed < 1 ? "just now" : `${elapsed} min ago`}`));
+      this.updatedElement = this.element("span", "dimmed xsmall anker-updated");
+      title.appendChild(this.updatedElement);
+      this.updateAgeText();
     }
     if (title.children.length) wrapper.appendChild(title);
     if (!this.state) {

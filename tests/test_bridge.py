@@ -295,6 +295,59 @@ class MonitorTests(unittest.IsolatedAsyncioTestCase):
         await telemetry.request(1240)
         self.assertEqual(controller.realtime_trigger.await_count, 2)
 
+    async def test_controller_requests_run_concurrently(self):
+        active = 0
+        peak = 0
+
+        async def trigger(**_kwargs):
+            nonlocal active, peak
+            active += 1
+            peak = max(peak, active)
+            await asyncio.sleep(0.01)
+            active -= 1
+            return {}
+
+        controllers = {}
+        for index in range(12):
+            controllers[str(index)] = type("Controller", (), {
+                "controls": {"realtime_trigger": {}},
+                "realtime_trigger": AsyncMock(side_effect=trigger),
+                "status_request": AsyncMock(return_value={}),
+            })()
+        telemetry = Telemetry(None, asyncio.get_running_loop(), 600)
+        telemetry.controllers = controllers
+        await asyncio.wait_for(telemetry.request(1000), 1)
+        self.assertEqual(peak, telemetry.MAX_CONCURRENT_REQUESTS)
+
+    async def test_controller_request_failure_cancels_siblings(self):
+        sibling_cancelled = asyncio.Event()
+
+        async def wait_forever(**_kwargs):
+            try:
+                await asyncio.Future()
+            finally:
+                sibling_cancelled.set()
+
+        def controller(trigger):
+            return type("Controller", (), {
+                "controls": {"realtime_trigger": {}},
+                "realtime_trigger": AsyncMock(side_effect=trigger),
+                "status_request": AsyncMock(return_value={}),
+            })()
+
+        async def fail(**_kwargs):
+            await asyncio.sleep(0)
+            raise RuntimeError("request failed")
+
+        telemetry = Telemetry(None, asyncio.get_running_loop(), 600)
+        telemetry.controllers = {
+            "failed": controller(fail),
+            "sibling": controller(wait_forever),
+        }
+        with self.assertRaisesRegex(RuntimeError, "request failed"):
+            await telemetry.request(1000)
+        self.assertTrue(sibling_cancelled.is_set())
+
     async def test_field_freshness_and_model_specific_charging(self):
         telemetry = Telemetry(None, asyncio.get_running_loop(), 60)
         telemetry.record("station", {"battery_soc": 80, "temperature": 25, "charging_status": 1}, 100)
@@ -316,6 +369,21 @@ class MonitorTests(unittest.IsolatedAsyncioTestCase):
         ):
             device = normalize_device("station", {"device_pn": model}, {}, 0, True, 60, True, {field: state})
             self.assertEqual(device["charging"], expected)
+
+    async def test_telemetry_cache_prunes_expired_and_removed_devices(self):
+        client = type("Client", (), {"devices": {"active": {"device_pn": "unknown"}}})()
+        telemetry = Telemetry(client, asyncio.get_running_loop(), 60)
+        telemetry.record("active", {"fresh": 1}, 100)
+        telemetry.record("removed", {"old": 2}, 100)
+        telemetry.controllers = {"active": object(), "removed": object()}
+
+        telemetry.discover()
+        self.assertEqual(set(telemetry.reported), {"active"})
+        self.assertEqual(set(telemetry.seen), {"active"})
+        self.assertEqual(set(telemetry.controllers), {"active"})
+
+        self.assertEqual(telemetry.current("active", 161), {})
+        self.assertNotIn("active", telemetry.reported)
 
     async def test_poll_discovery_mqtt_and_cleanup(self):
         class Client:
@@ -356,6 +424,43 @@ class MonitorTests(unittest.IsolatedAsyncioTestCase):
         client.update_device_details.assert_awaited_once()
         client.startMqttSession.assert_awaited_once()
         self.assertTrue(client.stopped)
+
+    async def test_unchanged_monitor_state_is_not_re_emitted(self):
+        client = type("Client", (), {})()
+        client.devices = {"serial": {"name": "Station", "type": "pps", "battery_soc": "50"}}
+        client.sites = {}
+        client.mqttsession = None
+        client.update_sites = AsyncMock()
+        client.update_device_details = AsyncMock()
+        client.startMqttSession = AsyncMock(return_value=None)
+        client.stopMqttSession = lambda: None
+        client.mqtt_update_callback = lambda callback: None
+        output = io.StringIO()
+        clock = 0.0
+
+        async def sleep(_delay):
+            nonlocal clock
+            if clock:
+                raise asyncio.CancelledError
+            clock = 121.0
+
+        with (
+            patch.dict(os.environ, {
+                "ANKER_EMAIL": "test@example.com", "ANKER_PASSWORD": "test",
+                "ANKER_COUNTRY": "US", "ANKER_MQTT": "false",
+            }),
+            patch("anker_solix_api.api.AnkerSolixApi", return_value=client),
+            patch("anker_bridge.time.monotonic", side_effect=lambda: clock),
+            patch("anker_bridge.asyncio.sleep", side_effect=sleep),
+            contextlib.redirect_stdout(output),
+        ):
+            with self.assertRaises(asyncio.CancelledError):
+                await monitor()
+        states = [json.loads(line) for line in output.getvalue().splitlines()]
+        self.assertEqual(len(states), 2)
+        self.assertEqual(states[0], states[1])
+        client.update_sites.assert_awaited_once()
+        client.update_device_details.assert_awaited_once()
 
 
 if __name__ == "__main__":

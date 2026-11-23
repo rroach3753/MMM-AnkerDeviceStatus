@@ -25,15 +25,17 @@ function text(element) {
 function frontend() {
   let definition;
   const notifications = [];
+  const intervals = [];
   vm.runInNewContext(fs.readFileSync(path.join(root, "MMM-AnkerDeviceStatus.js"), "utf8"), {
     Module: { register: (_name, value) => { definition = value; } },
     document: { createElement: () => new Element() },
-    setInterval: () => 1, clearInterval() {}, Date
+    setInterval: (callback) => { intervals.push(callback); return intervals.length; },
+    clearInterval() {}, Date
   });
   return Object.assign(definition, {
     config: { ...definition.defaults }, identifier: "one",
     sendSocketNotification: (...args) => notifications.push(args), updateDom() {},
-    notifications
+    notifications, intervals
   });
 }
 
@@ -128,8 +130,20 @@ test("places cloud poll age beside the title, not below cards", () => {
   module.config.showUpdated = true;
   module.config.title = "";
   assert.match(text(module.getDom().children[0]), /Cloud polled/);
-  module.state.fetchedAt = null;
-  assert.equal(module.getDom().children[0].className, "anker-card");
+});
+
+test("updates cloud poll age without rebuilding the DOM", () => {
+  const module = frontend();
+  module.start();
+  module.state = { devices: [station], fetchedAt: new Date(Date.now() - 120000).toISOString() };
+  const dom = module.getDom();
+  const age = dom.children[0].children.at(-1);
+  let rebuilds = 0;
+  module.updateDom = () => { rebuilds += 1; };
+  module.state.fetchedAt = new Date().toISOString();
+  module.intervals[0]();
+  assert.equal(rebuilds, 0);
+  assert.match(age.textContent, /Cloud polled just now/);
 });
 
 test("isolates instances and filters only explicitly offline devices", () => {
@@ -455,6 +469,8 @@ test("shares one worker, parses fragmented responses, and targets subscribers", 
   assert.equal(messages.length, 2);
   assert.equal(messages[0][1].instanceId, "one");
   assert.equal(messages[1][1].instanceId, "two");
+  worker().stdout.emit("data", `${state}\n`);
+  assert.equal(messages.length, 2);
   helper.socketNotificationReceived("ANKER_UNSUBSCRIBE", { instanceId: "one" });
   assert.equal(worker().killed, undefined);
   helper.socketNotificationReceived("ANKER_UNSUBSCRIBE", { instanceId: "two" });

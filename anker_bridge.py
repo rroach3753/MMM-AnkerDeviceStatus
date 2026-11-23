@@ -302,6 +302,7 @@ class Telemetry:
     """Keep individual field receipt times, not freshness of accumulated caches."""
 
     REQUEST_MODELS = {"A1761", "AS220", "A2345", "A91B2"}
+    MAX_CONCURRENT_REQUESTS = 8
 
     def __init__(self, client, loop, stale_seconds: int) -> None:
         self.client = client
@@ -332,15 +333,25 @@ class Telemetry:
             fields[key] = (value, received_at)
 
     def current(self, serial: str, now: float) -> dict:
-        return {
-            key: value for key, (value, received_at) in self.reported.get(serial, {}).items()
-            if 0 <= now - received_at <= self.stale_seconds
-        }
+        fields = self.reported.get(serial, {})
+        current = {}
+        for key, (value, received_at) in list(fields.items()):
+            if 0 <= now - received_at <= self.stale_seconds:
+                current[key] = value
+            else:
+                del fields[key]
+        if not fields:
+            self.reported.pop(serial, None)
+        return current
 
     def discover(self) -> None:
         from anker_solix_api.mqtt_factory import SolixMqttDeviceFactory
 
         active = set(self.client.devices)
+        for serial in self.reported.keys() - active:
+            self.reported.pop(serial)
+        for serial in self.seen.keys() - active:
+            self.seen.pop(serial)
         self.controllers = {sn: controller for sn, controller in self.controllers.items() if sn in active}
         for serial, device in list(self.client.devices.items()):
             if device.get("device_pn") in self.REQUEST_MODELS and serial not in self.controllers:
@@ -352,16 +363,40 @@ class Telemetry:
 
     async def request(self, now: float) -> None:
         if now - self.last_trigger >= 240:
-            for controller in self.controllers.values():
-                if "realtime_trigger" in controller.controls:
-                    if await controller.realtime_trigger(timeout=300) is None:
-                        raise RuntimeError("MQTT telemetry trigger failed")
+            results = await self._bounded_requests([
+                controller.realtime_trigger(timeout=300)
+                for controller in self.controllers.values()
+                if "realtime_trigger" in controller.controls
+            ])
+            if any(result is None for result in results):
+                raise RuntimeError("MQTT telemetry trigger failed")
             self.last_trigger = now
         if now - self.last_status >= min(60, self.stale_seconds / 2):
-            for controller in self.controllers.values():
-                if await controller.status_request() is None:
-                    raise RuntimeError("MQTT status request failed")
+            results = await self._bounded_requests([
+                controller.status_request() for controller in self.controllers.values()
+            ])
+            if any(result is None for result in results):
+                raise RuntimeError("MQTT status request failed")
             self.last_status = now
+
+    async def _bounded_requests(self, requests: list) -> list:
+        if not requests:
+            return []
+        semaphore = asyncio.Semaphore(self.MAX_CONCURRENT_REQUESTS)
+
+        async def run(request):
+            async with semaphore:
+                return await request
+
+        tasks = [asyncio.create_task(run(request)) for request in requests]
+        try:
+            return await asyncio.gather(*tasks)
+        except BaseException:
+            for task in tasks:
+                if not task.done():
+                    task.cancel()
+            await asyncio.gather(*tasks, return_exceptions=True)
+            raise
 
 
 def emit(payload: dict) -> None:
@@ -406,6 +441,8 @@ async def monitor() -> None:
     warning: str | None = None
     expected_topics: set[str] = set()
     next_poll = next_details = 0.0
+    last_payload: dict | None = None
+    last_emit = 0.0
     loop = asyncio.get_running_loop()
 
     async with ClientSession(timeout=ClientTimeout(total=45)) as session:
@@ -471,12 +508,17 @@ async def monitor() -> None:
                         )
                         for serial, raw in list(client.devices.items())
                     ]
-                emit({
+                payload = {
                     "devices": devices,
                     "fetchedAt": fetched_at,
                     "error": cloud_error,
                     "warning": warning,
-                })
+                }
+                now = time.monotonic()
+                if payload != last_payload or now - last_emit >= 120:
+                    emit(payload)
+                    last_payload = payload
+                    last_emit = now
                 await asyncio.sleep(min(15, max(0.1, next_poll - time.monotonic())))
         finally:
             client.stopMqttSession()
