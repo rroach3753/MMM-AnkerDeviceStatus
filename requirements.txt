@@ -1,4 +1,4 @@
-anker-solix-api @ git+https://github.com/thomluther/anker-solix-api.git@288181055f3bad62679a46db963a3c60cc6e1635
+anker-solix-api @ git+https://github.com/thomluther/anker-solix-api.git@67bbb585ee19368db4947dcf89b2fa1ef9ad5c19
 # Enforce locally tested runtime floors at least as strict as upstream metadata.
 aiohttp>=3.14.5
 aiofiles>=25.1.0
