@@ -202,6 +202,11 @@ For example, configure your service/PM2 environment and restart MagicMirror.
 
 ## Configuration
 
+The [`config.schema.json`](./config.schema.json) file describes the module
+`config` object for editors and JSON Schema-aware tooling. It validates the
+browser-side configuration only; account and MQTT settings remain in the
+module's process environment.
+
 ### MagicMirror configuration example
 
 Add this module entry inside the existing `modules` array in

@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/rroach3753/MMM-AnkerDeviceStatus/main/config.schema.json",
+  "title": "MMM-AnkerDeviceStatus configuration",
+  "description": "Configuration object for MMM-AnkerDeviceStatus inside a MagicMirror config.js module entry.",
+  "type": "object",
+  "properties": {
+    "title": {
+      "type": "string",
+      "default": "Anker Power",
+      "description": "Module heading. Use an empty string to hide it."
+    },
+    "showOffline": { "type": "boolean", "default": true },
+    "showCloudOnly": { "type": "boolean", "default": true },
+    "solixOnly": { "type": "boolean", "default": true },
+    "showChargers": { "type": "boolean", "default": true },
+    "showChargerDetails": { "type": "boolean", "default": true },
+    "showInactiveChargerPorts": { "type": "boolean", "default": false },
+    "chargerGroups": {
+      "type": "object",
+      "default": {},
+      "description": "Controls individual charger detail groups. Unspecified non-power groups are hidden.",
+      "additionalProperties": { "type": "boolean" }
+    },
+    "chargerFields": {
+      "type": "object",
+      "default": {},
+      "description": "Maps decoded charger field names to visibility booleans. Explicit false hides a field.",
+      "additionalProperties": { "type": "boolean" }
+    },
+    "deviceIds": {
+      "type": "array",
+      "default": [],
+      "items": { "type": "string" }
+    },
+    "deviceNames": {
+      "type": "object",
+      "default": {},
+      "description": "Maps Anker device IDs to display names.",
+      "additionalProperties": { "type": "string" }
+    },
+    "showBattery": { "type": "boolean", "default": true },
+    "showPower": { "type": "boolean", "default": true },
+    "showTemperature": { "type": "boolean", "default": false },
+    "showCharging": { "type": "boolean", "default": true },
+    "showRuntime": { "type": "boolean", "default": true },
+    "showChargeTime": { "type": "boolean", "default": true },
+    "showFirmware": { "type": "boolean", "default": true },
+    "showUpdated": { "type": "boolean", "default": true },
+    "compact": { "type": "boolean", "default": false },
+    "cardsPerRow": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Fixed card count per row. Omit to use the position-based automatic layout."
+    }
+  },
+  "additionalProperties": false
+}
